@@ -785,7 +785,10 @@ class ModelPrediction(ModelObject):
         if self.transformation_dict is None:
             self.transformation_dict = {}
         self.transformer_object = GeneralTransformer(
-            **self.transformation_dict, n_jobs=n_jobs, holiday_country=holiday_country
+            **self.transformation_dict,
+            n_jobs=n_jobs,
+            holiday_country=holiday_country,
+            verbose=self.verbose,
         )
         self.model = ModelMonster(
             model_str,
@@ -979,6 +982,7 @@ class TemplateEvalObject(object):
         per_series_uwmse=None,
         per_series_smoothness=None,
         per_series_mate=None,
+        per_series_matse=None,
         per_series_wasserstein=None,
         per_series_dwd=None,
         model_count: int = 0,
@@ -1002,6 +1006,7 @@ class TemplateEvalObject(object):
         self.per_series_uwmse = per_series_uwmse
         self.per_series_smoothness = per_series_smoothness
         self.per_series_mate = per_series_mate
+        self.per_series_matse = per_series_matse
         self.per_series_wasserstein = per_series_wasserstein
         self.per_series_dwd = per_series_dwd
         self.full_mae_ids = []
@@ -1079,6 +1084,9 @@ class TemplateEvalObject(object):
         )
         self.per_series_mate = pd.concat(
             [self.per_series_mate, another_eval.per_series_mate], axis=0, sort=False
+        )
+        self.per_series_matse = pd.concat(
+            [self.per_series_matse, another_eval.per_series_matse], axis=0, sort=False
         )
         self.per_series_wasserstein = pd.concat(
             [self.per_series_wasserstein, another_eval.per_series_wasserstein],
@@ -1462,6 +1470,7 @@ def TemplateWizard(
     current_model_file: str = None,
     mosaic_used=None,
     force_gc: bool = False,
+    additional_msg: str = "",
 ):
     """
     Take Template, returns Results.
@@ -1541,11 +1550,12 @@ def TemplateWizard(
             if verbose > 0:
                 if validation_round >= 1:
                     base_print = (
-                        "Model Number: {} of {} with model {} for Validation {}".format(
+                        "Model Number: {} of {} with model {} for Validation {}{}".format(
                             str(template_result.model_count),
                             template.shape[0],
                             model_str,
                             str(validation_round),
+                            str(additional_msg),
                         )
                     )
                 else:
@@ -1560,9 +1570,10 @@ def TemplateWizard(
                 if verbose > 1:
                     print(
                         base_print
-                        + " with params {} and transformations {}".format(
+                        + " with params {} and transformations {}{}".format(
                             json.dumps(parameter_dict),
                             json.dumps(transformation_dict),
+                            str(additional_msg),
                         )
                     )
                 else:
@@ -1664,57 +1675,6 @@ def TemplateWizard(
             ps_metric.index = [model_id] * ps_metric.shape[0]
             ps_metric.index.name = "ID"
             template_result.per_series_metrics.append(ps_metric)
-
-            """
-            template_result.per_series_mae.append(
-                _ps_metric(ps_metric, 'mae', model_id)
-            )
-            template_result.per_series_made.append(
-                _ps_metric(ps_metric, 'made', model_id)
-            )
-            template_result.per_series_contour.append(
-                _ps_metric(ps_metric, 'contour', model_id)
-            )
-            template_result.per_series_rmse.append(
-                _ps_metric(ps_metric, 'rmse', model_id)
-            )
-            template_result.per_series_spl.append(
-                _ps_metric(ps_metric, 'spl', model_id)
-            )
-            template_result.per_series_mle.append(
-                _ps_metric(ps_metric, 'mle', model_id)
-            )
-            template_result.per_series_imle.append(
-                _ps_metric(ps_metric, 'imle', model_id)
-            )
-            template_result.per_series_maxe.append(
-                _ps_metric(ps_metric, 'maxe', model_id)
-            )
-            template_result.per_series_oda.append(
-                _ps_metric(ps_metric, 'oda', model_id)
-            )
-            template_result.per_series_mqae.append(
-                _ps_metric(ps_metric, 'mqae', model_id)
-            )
-            template_result.per_series_dwae.append(
-                _ps_metric(ps_metric, 'dwae', model_id)
-            )
-            template_result.per_series_ewmae.append(
-                _ps_metric(ps_metric, 'ewmae', model_id)
-            )
-            template_result.per_series_uwmse.append(
-                _ps_metric(ps_metric, 'uwmse', model_id)
-            )
-            template_result.per_series_smoothness.append(
-                _ps_metric(ps_metric, 'smoothness', model_id)
-            )
-            template_result.per_series_mate.append(
-                _ps_metric(ps_metric, 'mate', model_id)
-            )
-            template_result.per_series_wasserstein.append(
-                _ps_metric(ps_metric, 'wasserstein', model_id)
-            )
-            """
             if 'distance' in ensemble:
                 cur_smape = model_error.per_timestamp.loc['weighted_smape']
                 cur_smape = pd.DataFrame(cur_smape).transpose()
@@ -1861,62 +1821,15 @@ def TemplateWizard(
         template_result.per_series_mate = ps[ps['autots_eval_metric'] == 'mate'].drop(
             columns='autots_eval_metric'
         )
+        template_result.per_series_matse = ps[ps['autots_eval_metric'] == 'matse'].drop(
+            columns='autots_eval_metric'
+        )
         template_result.per_series_wasserstein = ps[
             ps['autots_eval_metric'] == 'wasserstein'
         ].drop(columns='autots_eval_metric')
         template_result.per_series_dwd = ps[ps['autots_eval_metric'] == 'dwd'].drop(
             columns='autots_eval_metric'
         )
-        """
-        template_result.per_series_mae = pd.concat(
-            template_result.per_series_mae, axis=0
-        )
-        template_result.per_series_made = pd.concat(
-            template_result.per_series_made, axis=0
-        )
-        template_result.per_series_contour = pd.concat(
-            template_result.per_series_contour, axis=0
-        )
-        template_result.per_series_rmse = pd.concat(
-            template_result.per_series_rmse, axis=0
-        )
-        template_result.per_series_spl = pd.concat(
-            template_result.per_series_spl, axis=0
-        )
-        template_result.per_series_mle = pd.concat(
-            template_result.per_series_mle, axis=0
-        )
-        template_result.per_series_imle = pd.concat(
-            template_result.per_series_imle, axis=0
-        )
-        template_result.per_series_maxe = pd.concat(
-            template_result.per_series_maxe, axis=0
-        )
-        template_result.per_series_oda = pd.concat(
-            template_result.per_series_oda, axis=0
-        )
-        template_result.per_series_mqae = pd.concat(
-            template_result.per_series_mqae, axis=0
-        )
-        template_result.per_series_dwae = pd.concat(
-            template_result.per_series_dwae, axis=0
-        )
-        template_result.per_series_ewmae = pd.concat(
-            template_result.per_series_ewmae, axis=0
-        )
-        template_result.per_series_uwmse = pd.concat(
-            template_result.per_series_uwmse, axis=0
-        )
-        template_result.per_series_smoothness = pd.concat(
-            template_result.per_series_smoothness, axis=0
-        )
-        template_result.per_series_mate = pd.concat(
-            template_result.per_series_mate, axis=0
-        )
-        template_result.per_series_wasserstein = pd.concat(
-            template_result.per_series_wasserstein, axis=0
-        )
-        """
     else:
         template_result.per_series_metrics = pd.DataFrame()
         template_result.per_series_mae = pd.DataFrame()
@@ -1934,6 +1847,7 @@ def TemplateWizard(
         template_result.per_series_uwmse = pd.DataFrame()
         template_result.per_series_smoothness = pd.DataFrame()
         template_result.per_series_mate = pd.DataFrame()
+        template_result.per_series_matse = pd.DataFrame()
         template_result.per_series_wasserstein = pd.DataFrame()
         template_result.per_series_dwd = pd.DataFrame()
         if verbose > 0 and not template.empty:
@@ -2728,6 +2642,7 @@ def generate_score_per_series(
     uwmse_weighting = metric_weighting.get('uwmse_weighting', 0)
     smoothness_weighting = metric_weighting.get('smoothness_weighting', 0)
     mate_weighting = metric_weighting.get('mate_weighting', 0)
+    matse_weighting = metric_weighting.get('matse_weighting', 0)
     wasserstein_weighting = metric_weighting.get('wasserstein_weighting', 0)
     dwd_weighting = metric_weighting.get('dwd_weighting', 0)
 
@@ -2820,6 +2735,14 @@ def generate_score_per_series(
         )
         mate_score = results_object.per_series_mate / mate_scaler
         overall_score = overall_score + (mate_score * mate_weighting)
+    if matse_weighting != 0:
+        matse_scaler = (
+            results_object.per_series_matse[results_object.per_series_matse != 0]
+            .min()
+            .fillna(1)
+        )
+        matse_score = results_object.per_series_matse / matse_scaler
+        overall_score = overall_score + (matse_score * matse_weighting)
     if wasserstein_weighting != 0:
         wasserstein_scaler = (
             results_object.per_series_wasserstein[

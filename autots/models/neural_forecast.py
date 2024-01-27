@@ -68,19 +68,27 @@ class NeuralForecast(ModelObject):
         self.model_args = model_args
         self.forecast_length = forecast_length
         self.df_train = None
+        self.static_regressor = None
 
-    def fit(self, df, future_regressor=None):
+    def fit(self, df, future_regressor=None, static_regressor=None, regressor_per_series=None):
         """Train algorithm given data supplied.
 
         Args:
             df (pandas.DataFrame): Datetime Indexed
         """
         self.basic_profile(df)
-        if self.regression_type in ["User", "user"]:
+        static_cols = None
+        if self.regression_type in ["User", "user", True]:
             if future_regressor is None:
                 raise ValueError(
                     "regression_type='User' but no future_regressor passed"
                 )
+            self.static_regressor = static_regressor
+            if isinstance(self.static_regressor, pd.DataFrame):
+                static_cols = static_regressor.columns.tolist()
+            if regressor_per_series is not None:
+                if not isinstance(regressor_per_series, dict):
+                    raise ValueError("regressor_per_series in incorrect format")
 
         from neuralforecast import NeuralForecast
         from neuralforecast.losses.pytorch import (
@@ -181,8 +189,12 @@ class NeuralForecast(ModelObject):
         }
         models = self.model
         model_args = self.model_args
-        if self.regression_type in ['User', 'user']:
-            self.base_args["futr_exog_list"] = future_regressor.columns.tolist()
+        if self.regression_type in ['User', 'user', True]:
+            regr_cols = future_regressor.columns.tolist()
+            if regressor_per_series is not None:
+                regr_cols + next(iter(regressor_per_series.values())).columns.tolist()
+            self.base_args["futr_exog_list"] = regr_cols
+            self.base_args['stat_exog_list'] = static_cols
 
         if isinstance(models, list):
             # User inputs classes directly
@@ -211,20 +223,36 @@ class NeuralForecast(ModelObject):
         silly_format = df.reset_index(names='ds').melt(
             id_vars='ds', value_name='y', var_name='unique_id'
         )
-        if self.regression_type in ['User', 'user']:
+        if self.regression_type in ['User', 'user', True]:
             silly_format = silly_format.merge(
                 future_regressor, left_on='ds', right_index=True
             )
+            if regressor_per_series is not None:
+                full_df = []
+                for key, value in regressor_per_series.items():
+                    local_copy = value.copy().reindex(df.index)
+                    local_copy.index.name = 'ds'
+                    local_copy = local_copy.reset_index()
+                    local_copy['unique_id'] = str(key)
+                    full_df.append(local_copy)
+                silly_format = silly_format.merge(pd.concat(full_df), on=['unique_id', 'ds'], how='left').fillna(0)
         self.nf = NeuralForecast(models=models, freq=freq)
-        self.nf.fit(df=silly_format)
+        if self.static_regressor is None:
+            self.nf.fit(df=silly_format)
+        else:
+            another_silly_format = self.static_regressor
+            another_silly_format.index.name = "unique_id"
+            self.nf.fit(
+                df=silly_format, static_df=another_silly_format.reset_index(drop=False)
+            )
         self.fit_runtime = datetime.datetime.now() - self.startTime
         return self
 
     def predict(
-        self, forecast_length=None, future_regressor=None, just_point_forecast=False
+        self, forecast_length=None, future_regressor=None, just_point_forecast=False, regressor_per_series=None
     ):
         predictStartTime = datetime.datetime.now()
-        if self.regression_type in ['User', 'user']:
+        if self.regression_type in ['User', 'user', True]:
             index = self.create_forecast_index(forecast_length=self.forecast_length)
             futr_df = pd.concat(
                 [
@@ -236,6 +264,15 @@ class NeuralForecast(ModelObject):
                 future_regressor, left_index=True, right_index=True
             )
             futr_df = futr_df.reset_index(names='ds')
+            if regressor_per_series is not None:
+                full_df = []
+                for key, value in regressor_per_series.items():
+                    local_copy = value.copy().reindex(index)
+                    local_copy.index.name = 'ds'
+                    local_copy = local_copy.reset_index()
+                    local_copy['unique_id'] = str(key)
+                    full_df.append(local_copy)
+                futr_df = futr_df.merge(pd.concat(full_df), on=['unique_id', 'ds'], how='left').fillna(0)
             self.futr_df = futr_df
             long_forecast = self.nf.predict(futr_df=futr_df)
         else:

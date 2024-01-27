@@ -55,8 +55,8 @@ evolve = True  # 允许时间序列在每次运行中逐步演化，如果为 Fa
 archive_templates = True  # 保存使用时间戳的模型模板的副本
 save_location = None  # "C:/Users/Colin/Downloads"  # 保存模板的目录。 默认为工作目录
 template_filename = f"autots_forecast_template_{forecast_name}.csv"
-forecast_csv_name = None  # f"autots_forecast_{forecast_name}.csv" 或 None，仅写入点预测
-model_list = "scalable"
+forecast_csv_name = None  # f"autots_forecast_{forecast_name}.csv"  # or None, point forecast only is written
+model_list = 'fast_parallel'
 transformer_list = "fast"  # 'superfast'
 transformer_max_depth = 5
 models_mode = "default"  # "deep", "regressor"
@@ -179,9 +179,9 @@ if not csv_load:
     if weather_event_types is not None:
         wevnt = [x for x in df.columns if "_Events" in x]
         df[wevnt] = df[wevnt].mask(df[wevnt].notnull().cummax(), df[wevnt].fillna(0))
-    # 这里的大部分NaN只是周末时的，当时金融系列数据没有被收集，向前填充几步是可以的
-    # 部分向前填充，不向后填充
-    df = df.fillna(method='ffill', limit=3)
+    # most of the NaN here are just weekends, when financial series aren't collected, ffill of a few steps is fine
+    # partial forward fill, no back fill
+    df = df.ffill(limit=3)
     
     df = df[df.index.year > 1999]
     # 移除任何未来的数据
@@ -229,18 +229,19 @@ Begin modeling
 """
 
 metric_weighting = {
-    'smape_weighting': 1,
-    'mae_weighting': 3,
-    'rmse_weighting': 2,
+    'smape_weighting': 2,
+    'mae_weighting': 2,
+    'rmse_weighting': 1.5,
     'made_weighting': 1,
     'mage_weighting': 0,
     'mate_weighting': 0.01,
-    'mle_weighting': 1,
+    'mle_weighting': 0.1,
     'imle_weighting': 0,
-    'spl_weighting': 5,
+    'spl_weighting': 3,
     'dwae_weighting': 1,
     'uwmse_weighting': 1,
     'dwd_weighting': 0.1,
+    "oda_weighting": 0.1,
     'runtime_weighting': 0.05,
 }
 

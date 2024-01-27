@@ -12,11 +12,9 @@
 * The most recent data will generally be the most important
 * Forecasts are desired for the future immediately following the most recent data.
 
-# 0.6.7 🇺🇦 🇺🇦 🇺🇦
-* Cassandra bug fix
-* isolated_only to anomaly methods
-* matse metric is possibly temporary and not added to per series weighting options
-* added HistoricValues transformer
+# 0.6.9 🇺🇦 🇺🇦 🇺🇦
+* expanded regressor options for MultivariateRegression, NeuralForecast (currently only available directly, not from AutoTS class)
+* matse bug fix on all 0 history
 
 ### Unstable Upstream Pacakges (those that are frequently broken by maintainers)
 * Pytorch-Forecasting
