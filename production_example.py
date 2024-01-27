@@ -28,10 +28,10 @@ import datetime
 import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt  # required only for graphs
+import matplotlib.pyplot as plt  # required only for graphs 
 from autots import AutoTS, load_live_daily, create_regressor
 
-fred_key = None  # https://fred.stlouisfed.org/docs/api/api_key.html
+fred_key = 'd84151f6309da8996e4f7627d6efc026'  # https://fred.stlouisfed.org/docs/api/api_key.html
 gsa_key = None
 
 forecast_name = "example"

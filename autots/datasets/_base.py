@@ -230,7 +230,7 @@ def load_live_daily(
     london_air_days: int = 180,
     earthquake_days: int = 180,
     earthquake_min_magnitude: int = 5,
-    gsa_key: str = None,  # https://open.gsa.gov/api/dap/
+    gsa_key: str = 'c3bd622a-44c4-472c-92f7-de6f2423634f',  # https://open.gsa.gov/api/dap/
     gov_domain_list=['nasa.gov'],
     gov_domain_limit: int = 600,
     wikipedia_pages: list = ['Microsoft_Office', "List_of_highest-grossing_films"],
@@ -241,37 +241,38 @@ def load_live_daily(
     sleep_seconds: int = 2,
     **kwargs,
 ):
-    """Generates a dataframe of data up to the present day. Requires active internet connection.
-    Try to be respectful of these free data sources by not calling too much too heavily.
-    Pass None instead of specification lists to exclude a data source.
+    """生成直至今日的数据的数据框。需要活跃的互联网连接。
+    尝试尊重这些免费数据源，不要频繁重复调用。
+    传入 None 而不是指定列表来排除某个数据源。
 
-    Args:
-        long (bool): whether to return in long format or wide
-        observation_start (str): %Y-%m-%d earliest day to retrieve, passed to Fred.get_series and yfinance.history
-            note that apis with more restrictions have other default lengths below which ignore this
-        observation_end (str):  %Y-%m-%d most recent day to retrieve
+    参数:
+        long (bool): 是否以长格式返回而非宽格式
+        observation_start (str): %Y-%m-%d 获取数据的最早日期，传递给 Fred.get_series 和 yfinance.history
+            注意对于限制更多的 api，存在其他默认长度忽略此项
+        observation_end (str): %Y-%m-%d 获取数据的最近日期
         fred_key (str): https://fred.stlouisfed.org/docs/api/api_key.html
-        fred_series (list): list of FRED series IDs. This requires fredapi package
-        tickers (list): list of stock tickers, requires yfinance pypi package
-        trends_list (list): list of search keywords, requires pytrends pypi package. None to skip.
-        weather_data_types (list): from NCEI NOAA api data types, GHCN Daily Weather Elements
+        fred_series (list): FRED 系列 ID 列表。这需要 fredapi 包
+        tickers (list): 股票代码列表，需要 yfinance pypi 包
+        trends_list (list): 搜索关键词列表，需要 pytrends pypi 包。传入 None 来跳过。
+        weather_data_types (list): 来自 NCEI NOAA api 的数据类型，GHCN 每日天气要素
             PRCP, SNOW, TMAX, TMIN, TAVG, AWND, WSF1, WSF2, WSF5, WSFG
-        weather_stations (list): from NCEI NOAA api station ids. Pass empty list to skip.
-        london_air_stations (list): londonair.org.uk source station IDs. Pass empty list to skip.
-        london_species (str): what measurement to pull from London Air. Not all stations have all metrics.
-        earthquake_min_magnitude (int): smallest earthquake magnitude to pull from earthquake.usgs.gov. Set None to skip this.
-        gsa_key (str): api key from https://open.gsa.gov/api/dap/
-        gov_domain_list (list): dist of government run domains to get traffic data for. Can be very slow, so fewer is better.
-            some examples: ['usps.com', 'ncbi.nlm.nih.gov', 'cdc.gov', 'weather.gov', 'irs.gov', "usajobs.gov", "studentaid.gov", 'nasa.gov', "uk.usembassy.gov", "tsunami.gov"]
-        gov_domain_limit (int): max number of records. Smaller will be faster. Max is currently 10000.
-        wikipedia_pages (list): list of Wikipedia pages, html encoded if needed (underscore for space)
-        weather_event_types (list): list of html encoded severe weather event types https://www1.ncdc.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Export-Format.pdf
-        caiso_query (str): ENE_SLRS or None, can try others but probably won't work due to other hardcoded params
-        timeout (float): used by some queries
-        sleep_seconds (int): increasing this may reduce probability of server download failures
+        weather_stations (list): 来自 NCEI NOAA api 的气象站 id。传入空列表来跳过。
+        london_air_stations (list): londonair.org.uk 数据来源站点 ID。传入空列表来跳过。
+        london_species (str): 从伦敦空气中提取的测量数据。并非所有站点都有所有指标。
+        earthquake_min_magnitude (int): 从 earthquake.usgs.gov 获取的最小地震震级。设置 None 来跳过。
+        gsa_key (str): 来自 https://open.gsa.gov/api/dap/ 的 api 密钥
+        gov_domain_list (list): 获取流量数据的政府运营域名列表。可能非常慢，所以少一些更好。
+            一些例子：['usps.com', 'ncbi.nlm.nih.gov', 'cdc.gov', 'weather.gov', 'irs.gov', "usajobs.gov", "studentaid.gov", 'nasa.gov', "uk.usembassy.gov", "tsunami.gov"]
+        gov_domain_limit (int): 记录的最大数量。更小的数量会更快。目前最大为 10000。
+        wikipedia_pages (list): 维基百科页面列表，必要时进行 html 编码（空格用下划线代替）
+        weather_event_types (list): html 编码的严重天气事件类型列表 https://www1.ncdc.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Export-Format.pdf
+        caiso_query (str): ENE_SLRS 或 None，尝试其他可能不会工作因为其他硬编码参数
+        timeout (float): 一些查询使用的超时时间
+        sleep_seconds (int): 增加此值可能降低服务器下载失败的概率
     """
     assert sleep_seconds >= 0.5, "sleep_seconds must be >=0.5"
 
+    # 定义六年前到现在的开始时间和结束时间
     dataset_lists = []
     if observation_end is None:
         current_date = datetime.datetime.utcnow()
@@ -290,9 +291,10 @@ def load_live_daily(
     except Exception as e:
         print(f"requests Session creation failed {repr(e)}")
 
+    # 如果有fred_key，尝试获取 fred 数据
     try:
         if fred_key is not None and fred_series is not None:
-            from fredapi import Fred  # noqa
+            from autots.datasets.fred2 import Fred  # noqa
             from autots.datasets.fred import get_fred_data
 
             fred_df = get_fred_data(
@@ -302,8 +304,8 @@ def load_live_daily(
                 observation_start=observation_start,
                 sleep_seconds=sleep_seconds,
             )
-            fred_df.index = fred_df.index.tz_localize(None)
-            dataset_lists.append(fred_df)
+            fred_df.index = fred_df.index.tz_localize(None) # 去除时区
+            dataset_lists.append(fred_df) # 将 fred 数据添加到 dataset_lists 中
     except ModuleNotFoundError:
         print("pip install fredapi (and you'll also need an api key)")
     except Exception as e:
@@ -317,14 +319,19 @@ def load_live_daily(
                 msft = yf.Ticker(ticker)
                 # get historical market data
                 msft_hist = msft.history(start=observation_start)
+                # 将列名转换为小写并用下划线替换空格
                 msft_hist = msft_hist.rename(
                     columns=lambda x: x.lower().replace(" ", "_")
                 )
+                # 在每列名前加上股票代码
                 msft_hist = msft_hist.rename(columns=lambda x: ticker.lower() + "_" + x)
                 try:
+                    # 有时候会有时区问题，这里尝试去除时区
                     msft_hist.index = msft_hist.index.tz_localize(None)
                 except Exception:
                     pass
+                # 将数据添加到 dataset_lists 中，他是一个二维列表，每一个元素都是一个股票的dataframe对象
+                # len(dataset_lists) 长度就是获取了多少个股票的dataframe数据
                 dataset_lists.append(msft_hist)
                 time.sleep(sleep_seconds)
             except ModuleNotFoundError:

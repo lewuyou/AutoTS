@@ -164,20 +164,21 @@ def long_to_wide(
     aggfunc: str = 'first',
 ):
     """
-    Take long data and convert into wide, cleaner data.
+     将长数据转换为宽、更清晰的数据。
 
-    Args:
-        df (pd.DataFrame) - a pandas dataframe having three columns:
-        date_col (str) - the name of the column containing dates, preferrably already in pandas datetime format
-        value_col (str): - the name of the column with the values of the time series (ie sales $)
-        id_col (str): - name of the id column, unique for each time series
-        aggfunc (str): - passed to pd.pivot_table, determines how to aggregate duplicates for series_id and datetime
-            other options include "mean" and other numpy functions, beware data *must* already be input as numeric type for these to work.
-            if categorical data is provided, `aggfunc='first'` is recommended
+     参数：
+         df (pd.DataFrame) - 具有三列的 pandas 数据框：
+         date_col (str) - 包含日期的列的名称，最好已经采用 pandas 日期时间格式
+         value_col (str): - 包含时间序列值的列的名称（即 sales $）
+         id_col (str): - id列的名称，每个时间序列都是唯一的
+         aggfunc (str): - 传递给 pd.pivot_table，确定如何聚合 series_id 和 datetime 的重复项
+             其他选项包括“mean”和其他 numpy 函数，请注意数据*必须*已经作为数字类型输入才能工作。
+             如果提供分类数据，建议使用 `aggfunc='first'`
     """
     df_long = df.copy()
 
     # Attempt to convert to datetime format if not already
+    # 翻译：如果不是 datetime 格式，尝试转换
     try:
         df_long[date_col] = pd.to_datetime(df_long[date_col])
     except Exception:
@@ -186,14 +187,18 @@ def long_to_wide(
         )
 
     # handle no id_col for if only one time series
+    # 翻译：处理没有 id_col 的情况，如果只有一个时间序列
     if id_col in [None, 'None']:
-        df_long[id_col] = 'First'
+        df_long[id_col] = 'First' 
+        # 移除在列 date_col 中有重复日期值的行，只保留每个日期的第一次出现
         df_long.drop_duplicates(subset=date_col, keep='first', inplace=True)
 
     # drop any unnecessary columns
+    # 翻译：删除任何不必要的列
     df_long = df_long[[date_col, id_col, value_col]]
 
     # pivot to different wide shape
+    # 翻译：将长数据转换为宽、更清晰的数据
     df_wide = df_long.pivot_table(
         values=value_col, index=date_col, columns=id_col, aggfunc=aggfunc
     )

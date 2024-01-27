@@ -1078,8 +1078,9 @@ class AutoTS(object):
              id_col (str)：标识不同系列的列名。
              future_regressor (numpy.Array)：匹配 train.index 的单个外部回归器
              权重 (dict): {'colname1': 2, 'colname2': 5} - 增加指标评估中系列的重要性。 任何留下的空白均假定权重为 1。
-                 将别名 'mean' 作为 str 传递，即 `weights='mean'` 自动使用序列的平均值作为其权重
-                 可用别名：平均值、中值、最小值、最大值
+                将别名 'mean' 作为 str 传递，即 `weights='mean'` 自动使用序列的平均值作为其权重
+                可用别名：平均值、中值、最小值、最大值
+                available aliases: mean, median, min, max
              result_file (str)：保存在每个新生成中的结果。 不包括验证轮次。
                  “.csv”保存模型结果表。
                  “.pickle”保存完整的对象，包括整体信息。
@@ -1090,7 +1091,7 @@ class AutoTS(object):
         self.grouping_ids = grouping_ids
         self.fitStart = pd.Timestamp.now()
 
-        # convert class variables to local variables (makes testing easier)
+        # 将类变量转换为局部变量（使测试更容易）
         if self.validation_method == "custom":
             self.validation_indexes = validation_indexes
             assert (
@@ -1111,20 +1112,20 @@ class AutoTS(object):
         verbose = self.verbose
         template_cols = self.template_cols
 
-        # shut off warnings if running silently
+        # 如果静默运行则关闭警告
         if verbose <= 0:
             import warnings
 
             warnings.filterwarnings("ignore")
 
-        # clean up result_file input, if given.
+        # 清理 result_file 输入（如果给定）。
         if result_file is not None:
             formats = ['.csv', '.pickle']
             if not any(x in result_file for x in formats):
                 print("result_file must be a valid str with .csv or .pickle")
                 result_file = None
 
-        # set random seeds for environment
+        # 为环境设置随机种子
         random_seed = abs(int(random_seed))
         random.seed(random_seed)
         np.random.seed(random_seed)
@@ -1138,7 +1139,7 @@ class AutoTS(object):
             weights=weights,
         )
 
-        # record if subset or not
+        # 记录是否为子集
         if self.subset is not None:
             self.subset = abs(int(self.subset))
             if self.subset >= self.df_wide_numeric.shape[1]:
@@ -1149,7 +1150,7 @@ class AutoTS(object):
             self.subset_flag = False
 
         #
-        # take a subset of the data if working with a large number of series
+        # 如果处理大量系列，则获取数据的子集
         if self.subset_flag:
             df_subset = subset_series(
                 self.df_wide_numeric,
@@ -1167,13 +1168,13 @@ class AutoTS(object):
             raise ValueError("provided validation index exceeds historical data period")
         df_subset = df_subset.reindex(first_idx)
 
-        # subset the weighting information as well
+        # 也对权重信息进行子集化
         if not self.weighted:
             current_weights = {x: 1 for x in df_subset.columns}
         else:
             current_weights = {x: self.weights[x] for x in df_subset.columns}
 
-        # split train and test portions, and split regressor if present
+        # 分割训练和测试部分，并分割回归器（如果存在）
         df_train, df_test = simple_train_test_split(
             df_subset,
             forecast_length=self.forecast_length,

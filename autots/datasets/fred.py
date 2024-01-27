@@ -9,7 +9,7 @@ import time
 import pandas as pd
 
 try:
-    from fredapi import Fred
+    from autots.datasets.fred2 import Fred
 except Exception:  # except ImportError
     _has_fred = False
 else:
@@ -43,16 +43,16 @@ def get_fred_data(
 
     if SeriesNameDict is None:
         SeriesNameDict = {
-            'T10Y2Y': '10 Year Treasury Constant Maturity Minus 2 Year Treasury Constant Maturity',
-            'DGS10': '10 Year Treasury Constant Maturity Rate',
-            'DCOILWTICO': 'Crude Oil West Texas Intermediate Cushing Oklahoma',
-            'SP500': 'S&P 500',
-            'DEXUSEU': 'US Euro Foreign Exchange Rate',
+            'T10Y2Y': '这是美国10年期国债与2年期国债收益率之差，通常被用作衡量经济前景的一个指标，特别是在预测经济衰退方面',
+            'DGS10': '美国10年期国债的收益率，常用于衡量长期利率水平。',
+            'DCOILWTICO': '这个数据代表了德克萨斯州库欣地区西德克萨斯中质原油（WTI）的价格，是油价的一个重要基准',
+            'SP500': '标准普尔500指数，是一个美国股市的重要指数，反映了美国大型上市公司的股价表现',
+            'DEXUSEU': '美元/欧元汇率，反映了美元对欧元的价值',
             'DEXCHUS': 'China US Foreign Exchange Rate',
-            'DEXCAUS': 'Canadian to US Dollar Exchange Rate Daily',
-            'VIXCLS': 'CBOE Volatility Index: VIX',  # this is a more irregular series
-            'T10YIE': '10 Year Breakeven Inflation Rate',
-            'USEPUINDXD': 'Economic Policy Uncertainty Index for United States',  # also very irregular
+            'DEXCAUS': '加拿大元对美元每日汇率',
+            'VIXCLS': '芝加哥期权交易所波动率指数：VIX',  # this is a more irregular series
+            'T10YIE': '10 年期国债的预期通胀率，通过市场价格推算出来，反映了市场对未来5年平均通胀率的预期',
+            'USEPUINDXD': '美国经济政策不确定性指数',  # also very irregular
         }
 
     if isinstance(SeriesNameDict, dict):
@@ -68,6 +68,7 @@ def get_fred_data(
         fred_timeseries = pd.DataFrame()
 
     for series in series_desired:
+        print(f"正在下载 {series}...")
         data = fred.get_series(series, observation_start=observation_start)
         try:
             series_name = SeriesNameDict[series]

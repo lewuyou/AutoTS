@@ -518,8 +518,9 @@ conda create -n autots python=3.10
 conda activate autots
 
 conda install scikit-learn pandas statsmodels prophet numexpr bottleneck tqdm holidays lightgbm matplotlib requests xgboost psutil yfinance pytrends fredapi -c conda-forge
-pip install tensorflow tensorflow-probability 
+pip install tensorflow tensorflow-probability # tensorflow 2.14.1
 pip install mxnet --no-deps  # 本地安装最高1.8，不要在线安装
+# gluonts 不要安装0.14.X，安装0.13.X
 pip install gluonts arch pystan # pystan 经常出现编译问题，需要安装Visual Studio C++编译器
 pip install holidays-ext pmdarima dill greykite --exists-action i --no-deps
 # 安装pytorch
@@ -528,7 +529,7 @@ conda install pytorch-forecasting -c conda-forge
 conda install neuralprophet -c conda-forge
 conda install spyder
 conda install autots -c conda-forge
-# 可选项
+# 安装intel优化版本
 pip install intel-tensorflow scikit-learn-intelex
 
 
