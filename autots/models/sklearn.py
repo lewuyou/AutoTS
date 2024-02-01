@@ -254,7 +254,9 @@ def rolling_x_regressor_regressor(
         X = pd.concat([X, future_regressor], axis=1)
     if regressor_per_series is not None:
         # this is actually wrong, merging on an index value that is off by one
-        X = X.merge(regressor_per_series, left_index=True, right_index=True, how='left').bfill()
+        X = X.merge(
+            regressor_per_series, left_index=True, right_index=True, how='left'
+        ).bfill()
     if static_regressor is not None:
         X['series_id'] = df.columns[0]
         X = X.merge(static_regressor, left_on="series_id", right_index=True, how='left')
@@ -702,8 +704,8 @@ datepart_model_dict: dict = {
     'DecisionTree': 0.02,
     'Adaboost': 0.05,
     'SVM': 0.01,
-    'KerasRNN': 0.02,
-    'Transformer': 0.02,  # slow
+    'KerasRNN': 0.01,
+    # 'Transformer': 0.02,  # slow, kernel failed
     'RadiusNeighbors': 0.1,
 }
 datepart_model_dict_deep = {
@@ -884,6 +886,7 @@ def generate_regressor_params(
         'Ridge',
         'GaussianProcessRegressor',
         'MultioutputGPR',
+        'SVM',
     ]:
         if model == 'Adaboost':
             param_dict = {
@@ -1281,6 +1284,16 @@ def generate_regressor_params(
                 )[0]
             if kernel == "locally_periodic":
                 param_dict['lambda_prime'] = random.choice([0.1, 1, 10])
+        elif model == "SVM":
+            # LinearSVR
+            param_dict = {
+                'C': random.choices([1.0, 0.5, 2.0, 0.25], [0.6, 0.1, 0.1, 0.1])[0],
+                'tol': random.choices([1e-4, 1e-3, 1e-5], [0.6, 0.1, 0.1])[0],
+                "loss": random.choice(
+                    ['epsilon_insensitive', 'squared_epsilon_insensitive']
+                ),
+                "max_iter": random.choice([500, 1000]),
+            }
         else:
             min_samples = np.random.choice(
                 [1, 2, 0.05], p=[0.5, 0.3, 0.2], size=1
@@ -3412,7 +3425,9 @@ class MultivariateRegression(ModelObject):
             regression_choice = random.choices([None, 'User'], [0.7, 0.3])[0]
         coint_lag = 1
         if "deep" in method:
-            coint_choice = random.choices([None, "BTCD", "Johansen"], [0.8, 0.1, 0.1])[0]
+            coint_choice = random.choices([None, "BTCD", "Johansen"], [0.8, 0.1, 0.1])[
+                0
+            ]
         else:
             coint_choice = None
         if coint_choice is not None:
