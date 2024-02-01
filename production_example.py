@@ -164,7 +164,7 @@ if not csv_load:
     if trend_list is not None:
         for tx in trend_list:
             if tx in df.columns:
-                df[tx] = df[tx].interpolate('akima').fillna(method='ffill', limit=30).fillna(method='bfill', limit=30)
+                df[tx] = df[tx].interpolate('akima').ffill(limit=30).bfill(limit=30)
     # 填补周末
     if tickers is not None:
         for fx in tickers:

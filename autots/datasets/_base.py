@@ -284,6 +284,8 @@ def load_live_daily(
             days=365 * 6
         )
         observation_start = observation_start.strftime("%Y-%m-%d")
+    
+    # 定义s，创建requests的session对象
     try:
         import requests
 
@@ -311,6 +313,7 @@ def load_live_daily(
     except Exception as e:
         print(f"FRED data failed: {repr(e)}")
 
+    # 获取股票数据
     if tickers is not None:
         for ticker in tickers:
             try:
@@ -338,8 +341,11 @@ def load_live_daily(
                 print("You need to: pip install yfinance")
             except Exception as e:
                 print(f"yfinance data failed: {repr(e)}")
-
+                
+    # 获取天气数据
+    # 将现在的时间转换为字符串，去除时间部分
     str_end_time = current_date.strftime("%Y-%m-%d")
+    # 根据weather_years计算开始时间
     start_date = (current_date - datetime.timedelta(days=360 * weather_years)).strftime(
         "%Y-%m-%d"
     )
@@ -363,6 +369,7 @@ def load_live_daily(
             except Exception as e:
                 print(f"weather data failed: {repr(e)}")
 
+    # 获取伦敦空气数据
     str_end_time = current_date.strftime("%d-%b-%Y")
     start_date = (current_date - datetime.timedelta(days=london_air_days)).strftime(
         "%d-%b-%Y"
@@ -385,6 +392,7 @@ def load_live_daily(
             except Exception as e:
                 print(f"London Air data failed: {repr(e)}")
 
+    # 获取地震数据
     if earthquake_min_magnitude is not None:
         try:
             str_end_time = current_date.strftime("%Y-%m-%d")
@@ -414,6 +422,7 @@ def load_live_daily(
         except Exception as e:
             print(f"earthquake data failed: {repr(e)}")
 
+    # 获取政府网站数据
     if gov_domain_list is not None:
         try:
             # print because this one is slow, and point people at that fact
@@ -436,6 +445,7 @@ def load_live_daily(
         except Exception as e:
             print(f"analytics.gov data failed with {repr(e)}")
 
+    # 获取维基百科数据
     if wikipedia_pages is not None:
         str_start = pd.to_datetime(observation_start).strftime("%Y%m%d00")
         str_end = current_date.strftime("%Y%m%d00")
@@ -462,6 +472,7 @@ def load_live_daily(
                 print(f"Wikipedia api failed with error {repr(e)}")
                 time.sleep(10)
 
+    # 获取严重天气数据
     if weather_event_types is not None:
         try:
             for event_type in weather_event_types:
@@ -489,6 +500,7 @@ def load_live_daily(
         except Exception as e:
             print(f"Severe Weather data failed with {repr(e)}")
 
+    # 获取谷歌趋势数据
     if trends_list is not None:
         try:
             from pytrends.request import TrendReq
@@ -505,6 +517,7 @@ def load_live_daily(
         except Exception as e:
             print(f"pytrends data failed: {repr(e)}")
 
+    # 获取 CAISO 数据
     if caiso_query is not None:
         try:
             n_chunks = (364 * weather_years) / 30
@@ -544,6 +557,7 @@ def load_live_daily(
         except Exception as e:
             print(f"caiso download failed with error: {repr(e)}")
 
+    # 获取美国能源信息管理局数据
     ### End of data download
     if len(dataset_lists) < 1:
         raise ValueError("No data successfully downloaded!")
