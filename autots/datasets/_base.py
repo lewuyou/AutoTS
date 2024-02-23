@@ -221,7 +221,7 @@ def load_live_daily(
     fred_series=["DGS10", "T5YIE", "SP500", "DCOILWTICO", "DEXUSEU", "WPU0911"],
     tickers: list = ["MSFT"],
     trends_list: list = ["forecasting", "cycling", "microsoft"],
-    trends_geo: str = "US",
+    trends_geo: str = "HK", # 中国香港时区
     weather_data_types: list = ["AWND", "WSF2", "TAVG"],
     weather_stations: list = ["USW00094846", "USW00014925"],
     weather_years: int = 5,
@@ -293,12 +293,13 @@ def load_live_daily(
     except Exception as e:
         print(f"requests Session creation failed {repr(e)}")
 
-    # 如果有fred_key，尝试获取 fred 数据
+    # 获取经济数据
     try:
         if fred_key is not None and fred_series is not None:
             from autots.datasets.fred2 import Fred  # noqa
             from autots.datasets.fred import get_fred_data
 
+            print("经济数据获取中")
             fred_df = get_fred_data(
                 fred_key,
                 fred_series,
@@ -319,6 +320,7 @@ def load_live_daily(
             try:
                 import yfinance as yf
 
+                print(f"yfinance 获取 {ticker} 数据中")
                 msft = yf.Ticker(ticker)
                 # get historical market data
                 msft_hist = msft.history(start=observation_start)
@@ -352,6 +354,7 @@ def load_live_daily(
     if weather_stations is not None:
         for wstation in weather_stations:
             try:
+                print(f"天气数据 获取 {wstation} 数据中")
                 wbase = "https://www.ncei.noaa.gov/access/services/data/v1/?dataset=daily-summaries"
                 wargs = f"&dataTypes={','.join(weather_data_types)}&stations={wstation}"
                 wargs = (
@@ -377,6 +380,7 @@ def load_live_daily(
     if london_air_stations is not None:
         for asite in london_air_stations:
             try:
+                print(f"伦敦空气数据 获取 {asite} 数据中")
                 # abase = "http://api.erg.ic.ac.uk/AirQuality/Data/Site/Wide/"
                 # aargs = "SiteCode=CT8/StartDate=2021-07-01/EndDate=2021-07-30/csv"
                 abase = 'https://www.londonair.org.uk/london/asp/downloadsite.asp'
@@ -395,6 +399,7 @@ def load_live_daily(
     # 获取地震数据
     if earthquake_min_magnitude is not None:
         try:
+            print("地震数据 获取中")
             str_end_time = current_date.strftime("%Y-%m-%d")
             start_date = (
                 current_date - datetime.timedelta(days=earthquake_days)
@@ -432,6 +437,7 @@ def load_live_daily(
             if "DEMO_KEY" in gsa_key:
                 gov_domain_list = gov_domain_list[0:1]
             for domain in gov_domain_list:
+                print(f"政府网站数据 获取 {domain} 数据中")
                 report = "domain"  # site, domain, download, second-level-domain
                 url = f"https://api.gsa.gov/analytics/dap/v1.1/domain/{domain}/reports/{report}/data?api_key={gsa_key}&limit={gov_domain_limit}&after={observation_start}"
                 data = s.get(url, timeout=timeout)
@@ -453,6 +459,7 @@ def load_live_daily(
             'User-Agent': 'AutoTS load_live_daily',
         }
         for page in wikipedia_pages:
+            print(f"维基百科数据 获取 {page} 数据中")
             try:
                 if page == "all":
                     url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/aggregate/all-projects/all-access/all-agents/daily/{str_start}/{str_end}?maxlag=5"
@@ -476,6 +483,7 @@ def load_live_daily(
     if weather_event_types is not None:
         try:
             for event_type in weather_event_types:
+                print(f"严重天气数据 获取 {event_type} 数据中")
                 # appears to have a fixed max of 500 records
                 url = f"https://www.ncdc.noaa.gov/stormevents/csv?eventType={event_type}&beginDate_mm=01&beginDate_dd=01&beginDate_yyyy=2000&endDate_mm=09&endDate_dd=30&endDate_yyyy=9999&hailfilter=0.00&tornfilter=2&windfilter=000&sort=DN&statefips=-999%2CALL"
                 csv_in = io.StringIO(s.get(url, timeout=timeout).text)
@@ -502,10 +510,11 @@ def load_live_daily(
 
     # 获取谷歌趋势数据
     if trends_list is not None:
+        print(f"谷歌趋势数据 获取中")
         try:
             from pytrends.request import TrendReq
 
-            pytrends = TrendReq(hl="en-US", tz=360)
+            pytrends = TrendReq(hl="en-US", tz=480) # 480是香港时区
             pytrends.build_payload(trends_list, geo=trends_geo)
             # pytrends.build_payload(trends_list, timeframe="all")  # 'today 12-m'
             gtrends = pytrends.interest_over_time()
@@ -517,8 +526,9 @@ def load_live_daily(
         except Exception as e:
             print(f"pytrends data failed: {repr(e)}")
 
-    # 获取 CAISO 数据
+    # 获取加利福尼亚用电数据
     if caiso_query is not None:
+        print(f"加利福尼亚用电数据 获取中")
         try:
             n_chunks = (364 * weather_years) / 30
             if n_chunks % 30 != 0:
@@ -557,8 +567,7 @@ def load_live_daily(
         except Exception as e:
             print(f"caiso download failed with error: {repr(e)}")
 
-    # 获取美国能源信息管理局数据
-    ### End of data download
+    ### 下载结束后数据处理，是否转换为长格式
     if len(dataset_lists) < 1:
         raise ValueError("No data successfully downloaded!")
     elif len(dataset_lists) == 1:
@@ -582,7 +591,7 @@ def load_live_daily(
         )
         return df_long
 
-
+# 创建一个只包含零值的数据集，用于测试或其他特定场景
 def load_zeroes(long=False, shape=None, start_date: str = "2021-01-01"):
     """Create a dataset of just zeroes for testing edge case."""
     if shape is None:

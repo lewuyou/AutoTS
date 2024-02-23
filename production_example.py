@@ -135,15 +135,18 @@ if not csv_load:
         fred_key=fred_key,
         fred_series=fred_series,
         tickers=tickers,
-        trends_list=trend_list,
-        earthquake_min_magnitude=5,
+        trends_list=None, # 从谷歌趋势中获取数据, 设置为None以跳过
+        earthquake_min_magnitude=None, # 地震数据，设置为None以跳过
+        weather_stations=None, # 天气数据，设置为None以跳过
         weather_years=3,
+        london_air_stations=None, # 伦敦空气质量，设置为None以跳过
         london_air_days=700,
-        wikipedia_pages=wikipedia_pages,
+        wikipedia_pages=None, # 维基百科流量，设置为None以跳过
         gsa_key=gsa_key,
-        gov_domain_list=None,  # ['usajobs.gov', 'usps.com', 'weather.gov'],
+        gov_domain_list=None,  # 政府网站流量，设置为None以跳过
         gov_domain_limit=700,
-        weather_event_types=weather_event_types,
+        weather_event_types=None, # 严重天气事件，设置为None以跳过
+        caiso_query=None, # 加利福尼亚用电数据，设置为None以跳过
         sleep_seconds=15,
     )
     # 小心混合到表现更好的数据中的非常嘈杂的大值序列，因为它们可能会扭曲某些指标，从而获得大部分关注
