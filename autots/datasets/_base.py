@@ -529,7 +529,7 @@ def load_live_daily(
         except Exception as e:
             print(f"pytrends data failed: {repr(e)}")
 
-    # 获取加利福尼亚用电数据
+    # this was kinda broken last I checked
     if caiso_query is not None:
         print(f"加利福尼亚用电数据 获取中")
         try:
