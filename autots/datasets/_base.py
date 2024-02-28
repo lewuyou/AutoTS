@@ -570,6 +570,7 @@ def load_live_daily(
         except Exception as e:
             print(f"caiso download failed with error: {repr(e)}")
 
+    # 获取美国能源信息署电力数据
     if eia_key is not None and eia_respondents is not None:
         api_url = 'https://api.eia.gov/v2/electricity/rto/daily-region-data/data/'  # ?api_key={eia-key}
         for respond in eia_respondents:
@@ -656,100 +657,16 @@ def load_live_daily(
             except Exception as e:
                 print(f"eia download failed with error {repr(e)}")
 
-    if eia_key is not None and eia_respondents is not None:
-        api_url = 'https://api.eia.gov/v2/electricity/rto/daily-region-data/data/'  # ?api_key={eia-key}
-        for respond in eia_respondents:
-            try:
-                params = {
-                    "frequency": "daily",
-                    "data": ["value"],
-                    "facets": {
-                        "type": [
-                            "D"
-                        ],
-                        "respondent": [
-                            respond
-                        ],
-                        "timezone": [
-                            "Eastern"
-                        ]
-                    },
-                    "start": None,  # "start": "2018-06-30",
-                    "end": None,  # "end": "2023-11-01",
-                    "sort":  [
-                        {
-                            "column": "period",
-                            "direction": "desc"
-                        }
-                    ],
-                    "offset": 0,
-                    "length": 5000
-                }
-                
-                res = s.get(api_url, params={"api_key": eia_key,}, headers={"X-Params": json.dumps(params)})
-                eia_df = pd.json_normalize(res.json()['response']['data'])
-                eia_df['datetime'] = pd.to_datetime(eia_df['period'])
-                eia_df['value'] = eia_df['value'].astype('float')
-                eia_df['ID'] = eia_df['respondent'] + "_" + eia_df['type'] + "_" + eia_df['timezone']
-                temp = eia_df.pivot(columns='ID', index='datetime', values='value')
-                dataset_lists.append(temp)
-                time.sleep(sleep_seconds)
-            except Exception as e:
-                print(f"eia download failed with error {repr(e)}")
-            try:
-                api_url_mix = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
-                params = {
-                    "frequency": "daily",
-                    "data": [
-                        "value"
-                    ],
-                    "facets": {
-                        "respondent": [
-                            respond
-                        ],
-                        "timezone": [
-                            "Eastern"
-                        ],
-                        "fueltype": [
-                            "COL",
-                            "NG",
-                            "NUC",
-                            "SUN",
-                            "WAT",
-                            "WND",
-                        ],
-                    },
-                    "start": None,
-                    "end": None,
-                    "sort": [
-                        {
-                            "column": "period",
-                            "direction": "desc"
-                        }
-                    ],
-                    "offset": 0,
-                    "length": 5000,
-                }
-                res = s.get(api_url_mix, params={"api_key": eia_key,}, headers={"X-Params": json.dumps(params)})
-                eia_df = pd.json_normalize(res.json()['response']['data'])
-                eia_df['datetime'] = pd.to_datetime(eia_df['period'])
-                eia_df['value'] = eia_df['value'].astype('float')
-                eia_df['type-name'] = eia_df['type-name'].str.replace(" ", "_")
-                eia_df['ID'] = eia_df['respondent'] + "_" + eia_df['type-name'] + "_" + eia_df['timezone']
-                temp = eia_df.pivot(columns='ID', index='datetime', values='value')
-                dataset_lists.append(temp)
-                time.sleep(1)
-            except Exception as e:
-                print(f"eia download failed with error {repr(e)}")
-
-    ### End of data download
+    ### 处理下载后的数据，确认是否转换为long格式
     if len(dataset_lists) < 1:
         raise ValueError("No data successfully downloaded!")
     elif len(dataset_lists) == 1:
         df = dataset_lists[0]
     else:
         from functools import reduce
-
+        # 首先确保所有数据集的索引都转换为统一的日期时间格式
+        dataset_lists = [dataset.set_index(pd.to_datetime(dataset.index)) for dataset in dataset_lists]
+        # 然后将所有数据集合并为一个数据集
         df = reduce(
             lambda x, y: pd.merge(x, y, left_index=True, right_index=True, how="outer"),
             dataset_lists,
@@ -792,7 +709,7 @@ def load_linear(
     introduce_random: float = None,
     random_seed: int = 123,
 ):
-    """Create a dataset of just zeroes for testing edge case.
+    """创建一个仅包含零的数据集以测试边缘情况。
 
     Args:
         long (bool): whether to make long or wide
@@ -832,7 +749,7 @@ def load_sine(
     introduce_random: float = None,
     random_seed: int = 123,
 ):
-    """Create a dataset of just zeroes for testing edge case."""
+    """创建一个仅包含零的数据集以测试边缘情况。"""
     if shape is None:
         shape = (500, 5)
     df_wide = pd.DataFrame(
@@ -863,7 +780,7 @@ def load_sine(
 
 
 def load_artificial(long=False, date_start=None, date_end=None):
-    """Load artifically generated series from random distributions.
+    """从随机分布加载人工生成的序列。
 
     Args:
         long (bool): if True long style data, if False, wide style data

@@ -152,10 +152,10 @@ if not csv_load:
     # 小心混合到表现更好的数据中的非常嘈杂的大值序列，因为它们可能会扭曲某些指标，从而获得大部分关注
     # 删除 "volume" 数据，因为它会扭曲 MAE（其他解决方案是将 metric_weighting 调整为 SMAPE、使用系列“权重”或预缩放数据）
     df = df[[x for x in df.columns if "_volume" not in x]]
-    # remove dividends and stock splits as it skews metrics
+    # 取消股息和股票分割，因为它会扭曲指标
     df = df[[x for x in df.columns if "_dividends" not in x]]
     df = df[[x for x in df.columns if "stock_splits" not in x]]
-    # 将“wiki_all”扩展到数百万以防止 MAE 出现太大偏差
+    # 将“wiki_all” 除以 1000000，以防止 MAE 出现太大偏差
     if 'wiki_all' in df.columns:
         df['wiki_all_millions'] = df['wiki_all'] / 1000000
         df = df.drop(columns=['wiki_all'])
@@ -164,11 +164,13 @@ if not csv_load:
     # 尽管如果你对为何它是随机的“没有好主意”，自动处理是最好的
     # 注意手动预清理显著影响验证（无论是好是坏）
     # 因为历史中的NaN时间会被度量标准跳过，但在这里添加的填充值会被评估
-    if trend_list is not None:
+    
+    # 谷歌趋势
+    if trend_list is not None: 
         for tx in trend_list:
             if tx in df.columns:
                 df[tx] = df[tx].interpolate('akima').ffill(limit=30).bfill(limit=30)
-    # 填补周末
+    # 使用平滑曲线填补周末NAN值
     if tickers is not None:
         for fx in tickers:
             for suffix in ["_high", "_low", "_open", "_close"]:
@@ -184,16 +186,21 @@ if not csv_load:
         df[wevnt] = df[wevnt].mask(df[wevnt].notnull().cummax(), df[wevnt].fillna(0))
     # most of the NaN here are just weekends, when financial series aren't collected, ffill of a few steps is fine
     # partial forward fill, no back fill
+    # 剩下数据使用前向填充（forward fill）方法来复制 df 中的缺失值（NaN），向前复制 最多3个值
     df = df.ffill(limit=3)
-    
+    # 删除小于 2000 年的数据
     df = df[df.index.year > 1999]
     # 移除任何未来的数据
     df = df[df.index <= start_time]
-    # 移除最近没有数据的序列
+    # 移除数据全是nan的列
     df = df.dropna(axis="columns", how="all")
+    # 比现在早180天的日期
     min_cutoff_date = start_time - datetime.timedelta(days=180)
+    # 找到最近的非nan日期
     most_recent_date = df.notna()[::-1].idxmax()
+    # 筛选所有180天以来没有新数据的列，并将这些列的名称存储在列表 
     drop_cols = most_recent_date[most_recent_date < min_cutoff_date].index.tolist()
+    # 丢弃这些长期不更新数据的列
     df = df.drop(columns=drop_cols)
     print(
         f"Series with most NaN: {df.head(365).isnull().sum().sort_values(ascending=False).head(5)}"
@@ -215,10 +222,10 @@ regr_train, regr_fcst = create_regressor(
     drop_most_recent=drop_most_recent,
     scale=True,
     summarize="auto",
-    backfill="bfill",
-    fill_na="spline",
+    backfill="bfill", # 处理移位产生的 NaN 的方法
+    fill_na="spline", # "spline", "ffill", "bfill"在数据中预填充 NA 的方法，与其他地方可用的方法相同
     holiday_countries={"US": None},  # requires holidays package
-    encode_holiday_type=True,
+    encode_holiday_type=True, # 如果为 True，则返回每个假期的列，仅适用于假期套餐国家/地区假期（不适用于检测器）
     # datepart_method="simple_2",
 )
 
