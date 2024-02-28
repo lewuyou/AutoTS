@@ -570,7 +570,6 @@ def load_live_daily(
         except Exception as e:
             print(f"caiso download failed with error: {repr(e)}")
 
-    # 获取美国能源信息署电力数据
     if eia_key is not None and eia_respondents is not None:
         api_url = 'https://api.eia.gov/v2/electricity/rto/daily-region-data/data/'  # ?api_key={eia-key}
         for respond in eia_respondents:
@@ -657,7 +656,7 @@ def load_live_daily(
             except Exception as e:
                 print(f"eia download failed with error {repr(e)}")
 
-    ### 处理下载后的数据，确认是否转换为long格式
+    ### End of data download
     if len(dataset_lists) < 1:
         raise ValueError("No data successfully downloaded!")
     elif len(dataset_lists) == 1:
