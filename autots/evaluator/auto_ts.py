@@ -3066,11 +3066,12 @@ class AutoTS(object):
         elif isinstance(models, str):
             val_results = self.results()
             validation_template = val_results[val_results['ID'].isin([models])][
-                self.template_cols
+                self.template_cols_id
             ].drop_duplicates()
         elif isinstance(models, list):
+            val_results = self.results()
             validation_template = val_results[val_results['ID'].isin(models)][
-                self.template_cols
+                self.template_cols_id
             ].drop_duplicates()
         elif isinstance(models, pd.DataFrame):
             validation_template = models
@@ -3078,6 +3079,8 @@ class AutoTS(object):
         duplicated = False
         if self.validation_forecasts_template is not None:
             if self.validation_forecasts_template.equals(validation_template):
+                duplicated = True
+            elif all([x in self.validation_forecasts_template['ID'].unique() for x in validation_template['ID'].unique()]):
                 duplicated = True
         if not duplicated:
             self.validation_forecast_cuts = []
@@ -3100,19 +3103,6 @@ class AutoTS(object):
                     train_reg = None
                     fut_reg = None
                 for index, row in validation_template.iterrows():
-                    df_forecast = self._predict(
-                        forecast_length=self.forecast_length,
-                        prediction_interval=self.prediction_interval,
-                        future_regressor=fut_reg,
-                        fail_on_forecast_nan=False,
-                        verbose=self.verbose,
-                        model_name=row["Model"],
-                        model_params=row["ModelParameters"],
-                        model_transformation_params=row["TransformationParameters"],
-                        df_wide_numeric=val_df_train,
-                        future_regressor_train=train_reg,
-                        bypass_save=True,
-                    )
                     idz = create_model_id(
                         row["Model"],
                         row["ModelParameters"],
@@ -3120,7 +3110,22 @@ class AutoTS(object):
                     )
                     if idz == self.best_model_id:
                         idz = "chosen_model"
-                    self.validation_forecasts[str(val) + "_" + str(idz)] = df_forecast
+                    val_id = str(val) + "_" + str(idz)
+                    if val_id not in self.validation_forecasts.keys():
+                        df_forecast = self._predict(
+                            forecast_length=self.forecast_length,
+                            prediction_interval=self.prediction_interval,
+                            future_regressor=fut_reg,
+                            fail_on_forecast_nan=False,
+                            verbose=self.verbose,
+                            model_name=row["Model"],
+                            model_params=row["ModelParameters"],
+                            model_transformation_params=row["TransformationParameters"],
+                            df_wide_numeric=val_df_train,
+                            future_regressor_train=train_reg,
+                            bypass_save=True,
+                        )
+                        self.validation_forecasts[val_id] = df_forecast
         else:
             if self.verbose > 0:
                 print("using stored results for plot_validations")
@@ -3259,11 +3264,6 @@ class AutoTS(object):
                 .to_frame()
                 .merge(plot_df, left_index=True, right_index=True, how="left")
             )
-        if not include_bounds:
-            colb = [
-                x for x in plot_df.columns if "_lower" not in x and "_upper" not in x
-            ]
-            plot_df = plot_df[colb]
         if start_date == "auto":
             frequency_numeric = [x for x in self.used_frequency if x.isdigit()]
             if not frequency_numeric:
@@ -3303,7 +3303,12 @@ class AutoTS(object):
         # actual plotting section
         if colors is not None:
             # this will need to change is users are allowed to input colors
-            ax = plot_df[['actuals', 'chosen']].plot(
+            colb = [
+                x for x in plot_df.columns if "_lower" not in x and "_upper" not in x
+            ]
+            new_colors = {x: random.choice(colors_list) for x in colb}
+            colors = {**new_colors, **colors}
+            ax = plot_df[colb].plot(
                 title=title, color=colors, **kwargs
             )
             if include_bounds:
