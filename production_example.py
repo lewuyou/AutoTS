@@ -214,22 +214,39 @@ else:
 # future_regressor 示例，其中包含我们可以从数据和日期时间索引中收集的一些内容
 # 请注意，这只接受`wide`样式的输入数据帧
 # 这是可选的，建模不需要
-# 在包含之前也创建 Macro_micro
+# 在包含之前也创建 Macro_microd
+'''
+create_regressor
+1.将数据转换为宽格式
+2.删除最近的forecast_length行
+3.用nan填充索引中缺失的日期
+4.将所有列转换为数值类型
+5.标准化数据
+6.将数据降维到10维
+7.填充缺失日期（已填充）对应的数据
+8.将假期编码为二进制
+9.返回结尾部分forecast_length(预测长度)的数据
+10.预测部分数据重置索引，时间设置为最后日期往后
+11.regressor_train 数据时间索引整体推迟60天(forecast_length)
+regressor_train + regressor_forecast 的数据等于原来的数据日期整体往后移动60天
+12.对因为数据移位产生的 NaN 进行填充,使用bfill方法,如果使用ets或者datepartregression,
+,则调用model_forecast对空缺数据进行预测。
+'''
 regr_train, regr_fcst = create_regressor(
     df,
     forecast_length=forecast_length,
     frequency=frequency,
     drop_most_recent=drop_most_recent,
     scale=True,
-    summarize="auto",
-    backfill="bfill", # 处理移位产生的 NaN 的方法
+    summarize="auto", # 数据降维，如果auto那么使用"feature_agglomeration"汇聚成10维,如果不是auto就是25维。
+    backfill="bfill", # 处理因为数据移位产生的 NaN 进行填充的方法
     fill_na="spline", # "spline", "ffill", "bfill"在数据中预填充 NA 的方法，与其他地方可用的方法相同
-    holiday_countries={"US": None},  # requires holidays package
+    holiday_countries= None,  # {"CN": None} 假期不准，利用股市数据进行预测
     encode_holiday_type=True, # 如果为 True，则返回每个假期的列，仅适用于假期套餐国家/地区假期（不适用于检测器）
     # datepart_method="simple_2",
 )
 
-# 删除前一个 Forecast_length 行（因为这些行在回归器中丢失）
+# 删除前一个 Forecast_length 行（因为这些行在create_regressor中丢失）
 df = df.iloc[forecast_length:]
 regr_train = regr_train.iloc[forecast_length:]
 
