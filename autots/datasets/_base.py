@@ -682,6 +682,474 @@ def load_live_daily(
         )
         return df_long
 
+def load_live_daily_cn(
+    long: bool = False,
+    observation_start: str = None,
+    observation_end: str = None,
+    fred_key: str = None,
+    fred_series=["DGS10", "T5YIE", "SP500", "DCOILWTICO", "DEXUSEU", "WPU0911"],
+    tickers: list = ["MSFT"],
+    trends_list: list = ["forecasting", "cycling", "microsoft"],
+    trends_geo: str = "HK", # 中国香港时区
+    weather_data_types: list = ["AWND", "WSF2", "TAVG"],
+    weather_stations: list = ["USW00094846", "USW00014925"],
+    weather_years: int = 5,
+    london_air_stations: list = ['CT3', 'SK8'],
+    london_air_species: str = "PM25",
+    london_air_days: int = 180,
+    earthquake_days: int = 180,
+    earthquake_min_magnitude: int = 5,
+    gsa_key: str = 'c3bd622a-44c4-472c-92f7-de6f2423634f',  # https://open.gsa.gov/api/dap/
+    gov_domain_list=['nasa.gov'],
+    gov_domain_limit: int = 600,
+    wikipedia_pages: list = ['Microsoft_Office', "List_of_highest-grossing_films"],
+    wiki_language: str = "en",
+    weather_event_types=["%28Z%29+Winter+Weather", "%28Z%29+Winter+Storm"],
+    caiso_query: str = None,
+    eia_key: str = None,
+    eia_respondents: list = ["MISO", "PJM", "TVA", "US48"],
+    timeout: float = 300.05,
+    sleep_seconds: int = 2,
+    **kwargs,
+):
+    """生成直至今日的数据的数据框。需要活跃的互联网连接。
+    尝试尊重这些免费数据源，不要频繁重复调用。
+    传入 None 而不是指定列表来排除某个数据源。
+
+    参数:
+        long (bool): 是否以长格式返回而非宽格式
+        observation_start (str): %Y-%m-%d 获取数据的最早日期，传递给 Fred.get_series 和 yfinance.history
+            注意对于限制更多的 api，存在其他默认长度忽略此项
+        observation_end (str): %Y-%m-%d 获取数据的最近日期
+        fred_key (str): https://fred.stlouisfed.org/docs/api/api_key.html
+        fred_series (list): FRED 系列 ID 列表。这需要 fredapi 包
+        tickers (list): 股票代码列表，需要 yfinance pypi 包
+        trends_list (list): 搜索关键词列表，需要 pytrends pypi 包。传入 None 来跳过。
+        weather_data_types (list): 来自 NCEI NOAA api 的数据类型，GHCN 每日天气要素
+            PRCP, SNOW, TMAX, TMIN, TAVG, AWND, WSF1, WSF2, WSF5, WSFG
+        weather_stations (list): 来自 NCEI NOAA api 的气象站 id。传入空列表来跳过。
+        london_air_stations (list): londonair.org.uk 数据来源站点 ID。传入空列表来跳过。
+        london_species (str): 从伦敦空气中提取的测量数据。并非所有站点都有所有指标。
+        earthquake_min_magnitude (int): 从 earthquake.usgs.gov 获取的最小地震震级。设置 None 来跳过。
+        gsa_key (str): 来自 https://open.gsa.gov/api/dap/ 的 api 密钥
+        gov_domain_list (list): 获取流量数据的政府运营域名列表。可能非常慢，所以少一些更好。
+            一些例子：['usps.com', 'ncbi.nlm.nih.gov', 'cdc.gov', 'weather.gov', 'irs.gov', "usajobs.gov", "studentaid.gov", 'nasa.gov', "uk.usembassy.gov", "tsunami.gov"]
+        gov_domain_limit (int): 记录的最大数量。更小的数量会更快。目前最大为 10000。
+        wikipedia_pages (list): 维基百科页面列表，必要时进行 html 编码（空格用下划线代替）
+        weather_event_types (list): html 编码的严重天气事件类型列表 https://www1.ncdc.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Export-Format.pdf
+        caiso_query (str): ENE_SLRS 或 None，尝试其他可能不会工作因为其他硬编码参数
+        timeout (float): 一些查询使用的超时时间
+        sleep_seconds (int): 增加此值可能降低服务器下载失败的概率
+    """
+    assert sleep_seconds >= 0.5, "sleep_seconds must be >=0.5"
+
+    # 定义六年前到现在的开始时间和结束时间
+    dataset_lists = []
+    if observation_end is None:
+        current_date = datetime.datetime.utcnow()
+    else:
+        current_date = observation_end
+    if observation_start is None:
+        # should take from observation_end but that's expected as a string
+        observation_start = datetime.datetime.utcnow() - datetime.timedelta(
+            days=365 * 6
+        )
+        observation_start = observation_start.strftime("%Y-%m-%d")
+    
+    # 定义s，创建requests的session对象
+    try:
+        import requests
+
+        s = requests.Session()
+    except Exception as e:
+        print(f"requests Session creation failed {repr(e)}")
+
+    # 获取经济数据
+    try:
+        if fred_key is not None and fred_series is not None:
+            from autots.datasets.fred2 import Fred  # noqa
+            from autots.datasets.fred import get_fred_data
+
+            print("经济数据获取中")
+            fred_df = get_fred_data(
+                fred_key,
+                fred_series,
+                long=False,
+                observation_start=observation_start,
+                sleep_seconds=sleep_seconds,
+            )
+            fred_df.index = fred_df.index.tz_localize(None) # 去除时区
+            dataset_lists.append(fred_df) # 将 fred 数据添加到 dataset_lists 中
+    except ModuleNotFoundError:
+        print("pip install fredapi (and you'll also need an api key)")
+    except Exception as e:
+        print(f"FRED data failed: {repr(e)}")
+
+    # 获取股票数据
+    if tickers is not None:
+        for ticker in tickers:
+            try:
+                import yfinance as yf
+
+                print(f"yfinance 获取 {ticker} 数据中")
+                msft = yf.Ticker(ticker)
+                # get historical market data
+                msft_hist = msft.history(start=observation_start)
+                # 将列名转换为小写并用下划线替换空格
+                msft_hist = msft_hist.rename(
+                    columns=lambda x: x.lower().replace(" ", "_")
+                )
+                # 在每列名前加上股票代码
+                msft_hist = msft_hist.rename(columns=lambda x: ticker.lower() + "_" + x)
+                try:
+                    # 有时候会有时区问题，这里尝试去除时区
+                    msft_hist.index = msft_hist.index.tz_localize(None)
+                except Exception:
+                    pass
+                # 将数据添加到 dataset_lists 中，他是一个二维列表，每一个元素都是一个股票的dataframe对象
+                # len(dataset_lists) 长度就是获取了多少个股票的dataframe数据
+                dataset_lists.append(msft_hist)
+                time.sleep(sleep_seconds)
+            except ModuleNotFoundError:
+                print("You need to: pip install yfinance")
+            except Exception as e:
+                print(f"yfinance data failed: {repr(e)}")
+                
+    # 获取天气数据
+    # 将现在的时间转换为字符串，去除时间部分
+    str_end_time = current_date.strftime("%Y-%m-%d")
+    # 根据weather_years计算开始时间
+    start_date = (current_date - datetime.timedelta(days=360 * weather_years)).strftime(
+        "%Y-%m-%d"
+    )
+    if weather_stations is not None:
+        for wstation in weather_stations:
+            try:
+                print(f"天气数据 获取 {wstation} 数据中")
+                wbase = "https://www.ncei.noaa.gov/access/services/data/v1/?dataset=daily-summaries"
+                wargs = f"&dataTypes={','.join(weather_data_types)}&stations={wstation}"
+                wargs = (
+                    wargs
+                    + f"&startDate={start_date}&endDate={str_end_time}&boundingBox=90,-180,-90,180&units=standard&format=csv"
+                )
+                wdf = pd.read_csv(
+                    io.StringIO(s.get(wbase + wargs, timeout=timeout).text)
+                )
+                wdf['DATE'] = pd.to_datetime(wdf['DATE'])
+                wdf = wdf.set_index('DATE').drop(columns=['STATION'])
+                wdf.rename(columns=lambda x: wstation + "_" + x, inplace=True)
+                dataset_lists.append(wdf)
+                time.sleep(sleep_seconds)
+            except Exception as e:
+                print(f"weather data failed: {repr(e)}")
+
+    # 获取伦敦空气数据
+    str_end_time = current_date.strftime("%d-%b-%Y")
+    start_date = (current_date - datetime.timedelta(days=london_air_days)).strftime(
+        "%d-%b-%Y"
+    )
+    if london_air_stations is not None:
+        for asite in london_air_stations:
+            try:
+                print(f"伦敦空气数据 获取 {asite} 数据中")
+                # abase = "http://api.erg.ic.ac.uk/AirQuality/Data/Site/Wide/"
+                # aargs = "SiteCode=CT8/StartDate=2021-07-01/EndDate=2021-07-30/csv"
+                abase = 'https://www.londonair.org.uk/london/asp/downloadsite.asp'
+                aargs = f"?site={asite}&species1={london_air_species}m&species2=&species3=&species4=&species5=&species6=&start={start_date}&end={str_end_time}&res=6&period=daily&units=ugm3"
+                data = s.get(abase + aargs, timeout=timeout).content
+                adf = pd.read_csv(io.StringIO(data.decode('utf-8')))
+                acol = adf['Site'].iloc[0] + "_" + adf['Species'].iloc[0]
+                adf['Datetime'] = pd.to_datetime(adf['ReadingDateTime'], dayfirst=True)
+                adf[acol] = adf['Value']
+                dataset_lists.append(adf[['Datetime', acol]].set_index("Datetime"))
+                time.sleep(sleep_seconds)
+                # "/Data/Traffic/Site/SiteCode={SiteCode}/StartDate={StartDate}/EndDate={EndDate}/Json"
+            except Exception as e:
+                print(f"London Air data failed: {repr(e)}")
+
+    # 获取地震数据
+    if earthquake_min_magnitude is not None:
+        try:
+            print("地震数据 获取中")
+            str_end_time = current_date.strftime("%Y-%m-%d")
+            start_date = (
+                current_date - datetime.timedelta(days=earthquake_days)
+            ).strftime("%Y-%m-%d")
+            # is limited to ~1000 rows of data, ie individual earthquakes
+            ebase = "https://earthquake.usgs.gov/fdsnws/event/1/query?"
+            eargs = f"format=csv&starttime={start_date}&endtime={str_end_time}&minmagnitude={earthquake_min_magnitude}"
+            eq = pd.read_csv(ebase + eargs)
+            eq["time"] = pd.to_datetime(eq["time"])
+            eq["time"] = eq["time"].dt.tz_localize(None)
+            eq.set_index("time", inplace=True)
+            global_earthquakes = eq.resample("1D").agg(
+                {"mag": "mean", "depth": "count"}
+            )
+            global_earthquakes["mag"] = global_earthquakes["mag"].fillna(
+                earthquake_min_magnitude
+            )
+            global_earthquakes = global_earthquakes.rename(
+                columns={
+                    "mag": "largest_magnitude_earthquake",
+                    "depth": "count_large_earthquakes",
+                }
+            )
+            dataset_lists.append(global_earthquakes)
+        except Exception as e:
+            print(f"earthquake data failed: {repr(e)}")
+
+    # 获取政府网站数据
+    if gov_domain_list is not None:
+        try:
+            # print because this one is slow, and point people at that fact
+            if gsa_key is None:
+                gsa_key = "DEMO_KEY2"
+            # only run 1 if demo_key1
+            if "DEMO_KEY" in gsa_key:
+                gov_domain_list = gov_domain_list[0:1]
+            for domain in gov_domain_list:
+                print(f"政府网站数据 获取 {domain} 数据中")
+                report = "domain"  # site, domain, download, second-level-domain
+                url = f"https://api.gsa.gov/analytics/dap/v1.1/domain/{domain}/reports/{report}/data?api_key={gsa_key}&limit={gov_domain_limit}&after={observation_start}"
+                data = s.get(url, timeout=timeout)
+                gdf = pd.read_json(data.text, orient="records")
+                gdf['date'] = pd.to_datetime(gdf['date'])
+                # essentially duplicates brought by agency and null agency
+                gresult = gdf.groupby('date')['visits'].first()
+                gresult.name = domain
+                dataset_lists.append(gresult.to_frame())
+                time.sleep(sleep_seconds)
+        except Exception as e:
+            print(f"analytics.gov data failed with {repr(e)}")
+
+    # 获取维基百科数据
+    if wikipedia_pages is not None:
+        str_start = pd.to_datetime(observation_start).strftime("%Y%m%d00")
+        str_end = current_date.strftime("%Y%m%d00")
+        headers = {
+            'User-Agent': 'AutoTS load_live_daily',
+        }
+        for page in wikipedia_pages:
+            print(f"维基百科数据 获取 {page} 数据中")
+            try:
+                if page == "all":
+                    url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/aggregate/all-projects/all-access/all-agents/daily/{str_start}/{str_end}?maxlag=5"
+                else:
+                    url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/{wiki_language}.wikipedia/all-access/all-agents/{page}/daily/{str_start}/{str_end}?maxlag=5"
+                data = s.get(url, timeout=timeout, headers=headers)
+                data_js = data.json()
+                if "items" not in data_js.keys():
+                    print(data_js)
+                gdf = pd.DataFrame(data_js['items'])
+                gdf['date'] = pd.to_datetime(gdf['timestamp'], format="%Y%m%d00")
+                gresult = gdf.set_index('date')['views'].fillna(0)
+                gresult.name = "wiki_" + str(page)[0:80]
+                dataset_lists.append(gresult.to_frame())
+                time.sleep(sleep_seconds)
+            except Exception as e:
+                print(f"Wikipedia api failed with error {repr(e)}")
+                time.sleep(10)
+
+    # 获取严重天气数据
+    if weather_event_types is not None:
+        try:
+            for event_type in weather_event_types:
+                print(f"严重天气数据 获取 {event_type} 数据中")
+                # appears to have a fixed max of 500 records
+                url = f"https://www.ncdc.noaa.gov/stormevents/csv?eventType={event_type}&beginDate_mm=01&beginDate_dd=01&beginDate_yyyy=2000&endDate_mm=09&endDate_dd=30&endDate_yyyy=9999&hailfilter=0.00&tornfilter=2&windfilter=000&sort=DN&statefips=-999%2CALL"
+                csv_in = io.StringIO(s.get(url, timeout=timeout).text)
+                try:
+                    # new in 1.3.0 of pandas
+                    df = pd.read_csv(csv_in, low_memory=False, on_bad_lines='skip')
+                except Exception:
+                    df = pd.read_csv(csv_in, low_memory=False, error_bad_lines=False)
+                df['BEGIN_DATE'] = pd.to_datetime(df['BEGIN_DATE'])
+                df['END_DATE'] = pd.to_datetime(df['END_DATE'])
+                df['day'] = df.apply(
+                    lambda row: pd.date_range(
+                        row["BEGIN_DATE"], row['END_DATE'], freq='D'
+                    ),
+                    axis=1,
+                )
+                df = df.explode('day')
+                swresult = df.groupby(["day"])["EVENT_ID"].count()
+                swresult.name = "_".join(event_type.split("+")[1:]) + "_Events"
+                dataset_lists.append(swresult.to_frame())
+                time.sleep(sleep_seconds)
+        except Exception as e:
+            print(f"Severe Weather data failed with {repr(e)}")
+
+    # 获取谷歌趋势数据
+    if trends_list is not None:
+        print(f"谷歌趋势数据 获取中")
+        try:
+            from pytrends.request import TrendReq
+
+            pytrends = TrendReq(hl="en-US", tz=480) # 480是香港时区
+            pytrends.build_payload(trends_list, geo=trends_geo)
+            # pytrends.build_payload(trends_list, timeframe="all")  # 'today 12-m'
+            gtrends = pytrends.interest_over_time()
+            gtrends.index = gtrends.index.tz_localize(None)
+            gtrends.drop(columns="isPartial", inplace=True, errors="ignore")
+            dataset_lists.append(gtrends)
+        except ImportError:
+            print("You need to: pip install pytrends")
+        except Exception as e:
+            print(f"pytrends data failed: {repr(e)}")
+
+    # this was kinda broken last I checked
+    if caiso_query is not None:
+        print(f"加利福尼亚用电数据 获取中")
+        try:
+            n_chunks = (364 * weather_years) / 30
+            if n_chunks % 30 != 0:
+                n_chunks = int(n_chunks) + 1
+            energy_df = []
+            for x in range(n_chunks):
+                try:
+                    end_nospace = (
+                        current_date - datetime.timedelta(days=30 * x)
+                    ).strftime("%Y%m%d")
+                    start_nospace = (
+                        current_date - datetime.timedelta(days=30 * (x + 1) + 1)
+                    ).strftime("%Y%m%d")
+                    caiso_url = f"http://oasis.caiso.com/oasisapi/SingleZip?resultformat=6&queryname={caiso_query}&version=1&market_run_id=RTM&tac_zone_name=ALL&schedule=Generation&startdatetime={start_nospace}T00:00-0000&enddatetime={end_nospace}T23:00-0000"
+                    data = pd.read_csv(caiso_url, compression='zip')
+                    data['OPR_DT'] = pd.to_datetime(data['OPR_DT'])
+                    data = data[data['OPR_HR'] < 25]
+                    energy_df.append(
+                        data.groupby(['OPR_DT', 'OPR_HR'])['MW']
+                        .mean()
+                        .reset_index()
+                        .pivot_table(
+                            values='MW', index='OPR_DT', columns='OPR_HR', aggfunc='sum'
+                        )
+                        .rename(columns=lambda x: "CAISO_GENERATION_HR_" + str(x))
+                        .sort_index()
+                        .bfill()
+                    )
+                    time.sleep(sleep_seconds + 8)
+                except Exception as e:
+                    print(f"caiso download failed with error: {repr(e)}")
+                    time.sleep(sleep_seconds)
+            energy_df = pd.concat(energy_df).sort_index()
+            energy_df = energy_df[~energy_df.index.duplicated(keep='last')]
+            dataset_lists.append(energy_df)
+        except Exception as e:
+            print(f"caiso download failed with error: {repr(e)}")
+
+    if eia_key is not None and eia_respondents is not None:
+        api_url = 'https://api.eia.gov/v2/electricity/rto/daily-region-data/data/'  # ?api_key={eia-key}
+        for respond in eia_respondents:
+            try:
+                params = {
+                    "frequency": "daily",
+                    "data": ["value"],
+                    "facets": {
+                        "type": [
+                            "D"
+                        ],
+                        "respondent": [
+                            respond
+                        ],
+                        "timezone": [
+                            "Eastern"
+                        ]
+                    },
+                    "start": None,  # "start": "2018-06-30",
+                    "end": None,  # "end": "2023-11-01",
+                    "sort":  [
+                        {
+                            "column": "period",
+                            "direction": "desc"
+                        }
+                    ],
+                    "offset": 0,
+                    "length": 5000
+                }
+                
+                res = s.get(api_url, params={"api_key": eia_key,}, headers={"X-Params": json.dumps(params)})
+                eia_df = pd.json_normalize(res.json()['response']['data'])
+                eia_df['datetime'] = pd.to_datetime(eia_df['period'])
+                eia_df['value'] = eia_df['value'].astype('float')
+                eia_df['ID'] = eia_df['respondent'] + "_" + eia_df['type'] + "_" + eia_df['timezone']
+                temp = eia_df.pivot(columns='ID', index='datetime', values='value')
+                dataset_lists.append(temp)
+                time.sleep(sleep_seconds)
+            except Exception as e:
+                print(f"eia download failed with error {repr(e)}")
+            try:
+                api_url_mix = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
+                params = {
+                    "frequency": "daily",
+                    "data": [
+                        "value"
+                    ],
+                    "facets": {
+                        "respondent": [
+                            respond
+                        ],
+                        "timezone": [
+                            "Eastern"
+                        ],
+                        "fueltype": [
+                            "COL",
+                            "NG",
+                            "NUC",
+                            "SUN",
+                            "WAT",
+                            "WND",
+                        ],
+                    },
+                    "start": None,
+                    "end": None,
+                    "sort": [
+                        {
+                            "column": "period",
+                            "direction": "desc"
+                        }
+                    ],
+                    "offset": 0,
+                    "length": 5000,
+                }
+                res = s.get(api_url_mix, params={"api_key": eia_key,}, headers={"X-Params": json.dumps(params)})
+                eia_df = pd.json_normalize(res.json()['response']['data'])
+                eia_df['datetime'] = pd.to_datetime(eia_df['period'])
+                eia_df['value'] = eia_df['value'].astype('float')
+                eia_df['type-name'] = eia_df['type-name'].str.replace(" ", "_")
+                eia_df['ID'] = eia_df['respondent'] + "_" + eia_df['type-name'] + "_" + eia_df['timezone']
+                temp = eia_df.pivot(columns='ID', index='datetime', values='value')
+                dataset_lists.append(temp)
+                time.sleep(1)
+            except Exception as e:
+                print(f"eia download failed with error {repr(e)}")
+
+    ### End of data download
+    if len(dataset_lists) < 1:
+        raise ValueError("No data successfully downloaded!")
+    elif len(dataset_lists) == 1:
+        df = dataset_lists[0]
+    else:
+        from functools import reduce
+        # 首先确保所有数据集的索引都转换为统一的日期时间格式
+        dataset_lists = [dataset.set_index(pd.to_datetime(dataset.index)) for dataset in dataset_lists]
+        # 然后将所有数据集合并为一个数据集
+        df = reduce(
+            lambda x, y: pd.merge(x, y, left_index=True, right_index=True, how="outer"),
+            dataset_lists,
+        )
+    print(f"{df.shape[1]} series downloaded.")
+    s.close()
+    df.index.name = "datetime"
+
+    if not long:
+        return df
+    else:
+        df_long = df.reset_index(drop=False).melt(
+            id_vars=['datetime'], var_name='series_id', value_name='value'
+        )
+        return df_long
+    
 # 创建一个只包含零值的数据集，用于测试或其他特定场景
 def load_zeroes(long=False, shape=None, start_date: str = "2021-01-01"):
     """Create a dataset of just zeroes for testing edge case."""
