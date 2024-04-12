@@ -1,6 +1,7 @@
 """
 用于导入示例数据的工具
 """
+
 from autots.datasets._base import (
     load_daily,
     load_live_daily,

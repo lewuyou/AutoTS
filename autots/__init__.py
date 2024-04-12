@@ -3,6 +3,7 @@ Automated Time Series Model Selection for Python
 
 https://github.com/winedarksea/AutoTS
 """
+
 from autots.datasets import (
     load_hourly,
     load_daily,
@@ -26,7 +27,7 @@ from autots.evaluator.anomaly_detector import AnomalyDetector, HolidayDetector
 from autots.models.cassandra import Cassandra
 
 
-__version__ = '0.6.10'
+__version__ = '0.6.11'
 
 TransformTS = GeneralTransformer
 
