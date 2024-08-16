@@ -28,6 +28,14 @@ autots.tools.cointegration module
    :undoc-members:
    :show-inheritance:
 
+autots.tools.constraint module
+------------------------------
+
+.. automodule:: autots.tools.constraint
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 autots.tools.cpu\_count module
 ------------------------------
 
@@ -144,6 +152,14 @@ autots.tools.transform module
 -----------------------------
 
 .. automodule:: autots.tools.transform
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+autots.tools.wavelet module
+---------------------------
+
+.. automodule:: autots.tools.wavelet
    :members:
    :undoc-members:
    :show-inheritance:

@@ -61,7 +61,7 @@ from autots.models.statsmodels import (
     DynamicFactorMQ,
 )
 from autots.models.arch import ARCH
-from autots.models.matrix_var import RRVAR, MAR, TMF, LATC
+from autots.models.matrix_var import RRVAR, MAR, TMF, LATC, DMD
 
 
 def create_model_id(
@@ -616,6 +616,7 @@ def ModelMonster(
             random_seed=random_seed,
             verbose=verbose,
             n_jobs=n_jobs,
+            forecast_length=forecast_length,
             **parameters,
         )
     elif model == "PreprocessingRegression":
@@ -695,6 +696,17 @@ def ModelMonster(
             holiday_country=holiday_country,
             random_seed=random_seed,
             verbose=verbose,
+            n_jobs=n_jobs,
+            **parameters,
+        )
+    elif model == 'DMD':
+        return DMD(
+            frequency=frequency,
+            prediction_interval=prediction_interval,
+            holiday_country=holiday_country,
+            random_seed=random_seed,
+            verbose=verbose,
+            forecast_length=forecast_length,
             n_jobs=n_jobs,
             **parameters,
         )
@@ -799,6 +811,7 @@ class ModelPrediction(ModelObject):
             holiday_country=self.holiday_country,
             verbose=self.verbose,
             random_seed=self.random_seed,
+            forecast_length=self.forecast_length,
         )
         self.name = "ModelPrediction"
         self._fit_complete = False
@@ -864,7 +877,7 @@ class ModelPrediction(ModelObject):
         if not self._fit_complete:
             raise ValueError("Model not yet fit.")
         df_forecast = self.model.predict(
-            forecast_length=self.forecast_length, future_regressor=future_regressor
+            forecast_length=forecast_length, future_regressor=future_regressor
         )
 
         # THIS CHECKS POINT FORECAST FOR NULLS BUT NOT UPPER/LOWER FORECASTS
@@ -896,11 +909,13 @@ class ModelPrediction(ModelObject):
         # CHECK Forecasts are proper length!
         if df_forecast.forecast.shape[0] != self.forecast_length:
             raise ValueError(
-                f"Model {self.model_str} returned improper forecast_length"
+                f"Model {self.model_str} returned improper forecast_length. Returned: {df_forecast.forecast.shape[0]} and requested: {self.forecast_length}"
             )
 
         if df_forecast.forecast.shape[1] != self.df.shape[1]:
-            raise ValueError("Model failed to return correct number of series.")
+            raise ValueError(
+                f"{self.model.name} with {self.transformer_object.transformations} failed to return correct number of series. Returned {df_forecast.forecast.shape[1]} and requested: {self.df.shape[1]}"
+            )
 
         df_forecast.transformation_parameters = self.transformation_dict
         # Remove negatives if desired
@@ -911,33 +926,53 @@ class ModelPrediction(ModelObject):
             df_forecast.upper_forecast = df_forecast.upper_forecast.clip(lower=0)
 
         if self.constraint is not None:
-            if isinstance(self.constraint, dict):
-                constraint_method = self.constraint.get("constraint_method", "quantile")
-                constraint_regularization = self.constraint.get(
-                    "constraint_regularization", 1
+            if isinstance(self.constraint, list):
+                constraints = self.constraint
+                df_forecast = df_forecast.apply_constraints(
+                    constraints=constraints,
+                    df_train=self.df,
                 )
-                lower_constraint = self.constraint.get("lower_constraint", 0)
-                upper_constraint = self.constraint.get("upper_constraint", 1)
-                bounds = self.constraint.get("bounds", False)
             else:
-                constraint_method = "stdev_min"
-                lower_constraint = float(self.constraint)
-                upper_constraint = float(self.constraint)
-                constraint_regularization = 1
-                bounds = False
-            if self.verbose > 3:
-                print(
-                    f"Using constraint with method: {constraint_method}, {constraint_regularization}, {lower_constraint}, {upper_constraint}, {bounds}"
-                )
+                constraints = None
+                if isinstance(self.constraint, dict):
+                    if "constraints" in self.constraint.keys():
+                        constraints = self.constraint.get("constraints")
+                        constraint_method = None
+                        constraint_regularization = None
+                        lower_constraint = None
+                        upper_constraint = None
+                        bounds = True
+                    else:
+                        constraint_method = self.constraint.get(
+                            "constraint_method", "quantile"
+                        )
+                        constraint_regularization = self.constraint.get(
+                            "constraint_regularization", 1
+                        )
+                        lower_constraint = self.constraint.get("lower_constraint", 0)
+                        upper_constraint = self.constraint.get("upper_constraint", 1)
+                        bounds = self.constraint.get("bounds", False)
+                else:
+                    constraint_method = "stdev_min"
+                    lower_constraint = float(self.constraint)
+                    upper_constraint = float(self.constraint)
+                    constraint_regularization = 1
+                    bounds = False
+                if self.verbose > 3:
+                    print(
+                        f"Using constraint with method: {constraint_method}, {constraint_regularization}, {lower_constraint}, {upper_constraint}, {bounds}"
+                    )
 
-            df_forecast = df_forecast.apply_constraints(
-                constraint_method,
-                constraint_regularization,
-                upper_constraint,
-                lower_constraint,
-                bounds,
-                self.df,
-            )
+                print(constraints)
+                df_forecast = df_forecast.apply_constraints(
+                    constraints,
+                    self.df,
+                    constraint_method,
+                    constraint_regularization,
+                    upper_constraint,
+                    lower_constraint,
+                    bounds,
+                )
 
         self.transformation_runtime = self.transformation_runtime + (
             datetime.datetime.now() - transformationStartTime
@@ -965,6 +1000,18 @@ class ModelPrediction(ModelObject):
     def fit_data(self, df, future_regressor=None):
         self.df = df
         self.model.fit_data(df, future_regressor)
+
+    def fit_predict(
+        self,
+        df,
+        forecast_length,
+        future_regressor_train=None,
+        future_regressor_forecast=None,
+    ):
+        self.fit(df, future_regressor=future_regressor_train)
+        return self.predict(
+            forecast_length=forecast_length, future_regressor=future_regressor_forecast
+        )
 
 
 class TemplateEvalObject(object):
@@ -2119,7 +2166,9 @@ def NewGeneticTemplate(
 
     # filter existing templates
     sorted_results = model_results[
-        (model_results['Ensemble'] == 0) & (model_results['Exceptions'].isna())
+        (model_results['Ensemble'] == 0)
+        & (model_results['Exceptions'].isna())
+        & (model_results['Model'].isin(model_list))
     ].copy()
     # remove duplicates by exact same performance
     sorted_results = sorted_results.sort_values(
@@ -2442,7 +2491,10 @@ def validation_aggregation(
 
 
 def generate_score(
-    model_results, metric_weighting: dict = {}, prediction_interval: float = 0.9
+    model_results,
+    metric_weighting: dict = {},
+    prediction_interval: float = 0.9,
+    return_score_dict: bool = False,
 ):
     """Generate score based on relative accuracies.
 
@@ -2481,6 +2533,8 @@ def generate_score(
     wasserstein_weighting = metric_weighting.get('wasserstein_weighting', 0)
     dwd_weighting = metric_weighting.get('dwd_weighting', 0)
     matse_weighting = metric_weighting.get('matse_weighting', 0)
+
+    score_dict = {"ID": model_results["ID"]}
     # handle various runtime information records
     if 'TotalRuntimeSeconds' in model_results.columns:
         model_results['TotalRuntimeSeconds'] = np.where(
@@ -2509,23 +2563,27 @@ def generate_score(
         ].min()
         smape_score = model_results['smape_weighted'] / smape_scaler
         overall_score = smape_score * smape_weighting
+        score_dict['smape'] = smape_score * smape_weighting
         if mae_weighting != 0:
             mae_scaler = model_results['mae_weighted'][
                 model_results['mae_weighted'] != 0
             ].min()
             mae_score = model_results['mae_weighted'] / mae_scaler
+            score_dict['mae'] = mae_score * mae_weighting
             overall_score = overall_score + (mae_score * mae_weighting)
         if rmse_weighting != 0:
             rmse_scaler = model_results['rmse_weighted'][
                 model_results['rmse_weighted'] != 0
             ].min()
             rmse_score = model_results['rmse_weighted'] / rmse_scaler
+            score_dict['rmse'] = rmse_score * rmse_weighting
             overall_score = overall_score + (rmse_score * rmse_weighting)
         if made_weighting != 0:
             made_scaler = model_results['made_weighted'][
                 model_results['made_weighted'] != 0
             ].min()
             made_score = model_results['made_weighted'] / made_scaler
+            score_dict['made'] = made_score * made_weighting
             # fillna, but only if all are nan (forecast_length = 1)
             # if pd.isnull(made_score.max()):
             #     made_score.fillna(0, inplace=True)
@@ -2535,54 +2593,63 @@ def generate_score(
                 model_results['mage_weighted'] != 0
             ].min()
             mage_score = model_results['mage_weighted'] / mage_scaler
+            score_dict['mage'] = mage_score * mage_weighting
             overall_score = overall_score + (mage_score * mage_weighting)
         if mle_weighting != 0:
             mle_scaler = model_results['mle_weighted'][
                 model_results['mle_weighted'] != 0
             ].min()
             mle_score = model_results['mle_weighted'] / mle_scaler
+            score_dict['mle'] = mle_score * mle_weighting
             overall_score = overall_score + (mle_score * mle_weighting)
         if imle_weighting != 0:
             imle_scaler = model_results['imle_weighted'][
                 model_results['imle_weighted'] != 0
             ].min()
             imle_score = model_results['imle_weighted'] / imle_scaler
+            score_dict['imle'] = imle_score * imle_weighting
             overall_score = overall_score + (imle_score * imle_weighting)
         if maxe_weighting != 0:
             maxe_scaler = model_results['maxe_weighted'][
                 model_results['maxe_weighted'] != 0
             ].min()
             maxe_score = model_results['maxe_weighted'] / maxe_scaler
+            score_dict['maxe'] = maxe_score * maxe_weighting
             overall_score = overall_score + (maxe_score * maxe_weighting)
         if mqae_weighting != 0:
             mqae_scaler = model_results['mqae_weighted'][
                 model_results['mqae_weighted'] != 0
             ].min()
             mqae_score = model_results['mqae_weighted'] / mqae_scaler
+            score_dict['mqae'] = mqae_score * mqae_weighting
             overall_score = overall_score + (mqae_score * mqae_weighting)
         if dwae_weighting != 0:
             dwae_scaler = model_results['dwae_weighted'][
                 model_results['dwae_weighted'] != 0
             ].min()
             dwae_score = model_results['dwae_weighted'] / dwae_scaler
+            score_dict['dwae'] = dwae_score * dwae_weighting
             overall_score = overall_score + (dwae_score * dwae_weighting)
         if ewmae_weighting != 0:
             ewmae_scaler = model_results['ewmae_weighted'][
                 model_results['ewmae_weighted'] != 0
             ].min()
             ewmae_score = model_results['ewmae_weighted'] / ewmae_scaler
+            score_dict['ewmae'] = ewmae_score * ewmae_weighting
             overall_score = overall_score + (ewmae_score * ewmae_weighting)
         if uwmse_weighting != 0:
             uwmse_scaler = model_results['uwmse_weighted'][
                 model_results['uwmse_weighted'] != 0
             ].min()
             uwmse_score = model_results['uwmse_weighted'] / uwmse_scaler
+            score_dict['uwmse'] = uwmse_score * uwmse_weighting
             overall_score = overall_score + (uwmse_score * uwmse_weighting)
         if mate_weighting != 0:
             mate_scaler = model_results['mate_weighted'][
                 model_results['mate_weighted'] != 0
             ].min()
             mate_score = model_results['mate_weighted'] / mate_scaler
+            score_dict['mate'] = mate_score * mate_weighting
             overall_score = overall_score + (mate_score * mate_weighting)
         if wasserstein_weighting != 0:
             wasserstein_scaler = model_results['wasserstein_weighted'][
@@ -2591,30 +2658,35 @@ def generate_score(
             wasserstein_score = (
                 model_results['wasserstein_weighted'] / wasserstein_scaler
             )
+            score_dict['wasserstein'] = wasserstein_score * wasserstein_weighting
             overall_score = overall_score + (wasserstein_score * wasserstein_weighting)
         if dwd_weighting != 0:
             dwd_scaler = model_results['dwd_weighted'][
                 model_results['dwd_weighted'] != 0
             ].min()
             dwd_score = model_results['dwd_weighted'] / dwd_scaler
+            score_dict['dwd'] = dwd_score * dwd_weighting
             overall_score = overall_score + (dwd_score * dwd_weighting)
         if matse_weighting != 0:
             matse_scaler = model_results['matse_weighted'][
                 model_results['matse_weighted'] != 0
             ].min()
             matse_score = model_results['matse_weighted'] / matse_scaler
+            score_dict['matse'] = matse_score * matse_weighting
             overall_score = overall_score + (matse_score * matse_weighting)
         if smoothness_weighting != 0:
             smoothness_scaler = model_results['smoothness_weighted'][
                 model_results['smoothness_weighted'] != 0
             ].mean()
             smoothness_score = model_results['smoothness_weighted'] / smoothness_scaler
+            score_dict['smoothness'] = smoothness_score * smoothness_weighting
             overall_score = overall_score + (smoothness_score * smoothness_weighting)
         if spl_weighting != 0:
             spl_scaler = model_results['spl_weighted'][
                 model_results['spl_weighted'] != 0
             ].min()
             spl_score = model_results['spl_weighted'] / spl_scaler
+            score_dict['spl'] = spl_score * spl_weighting
             overall_score = overall_score + (spl_score * spl_weighting)
         smape_median = smape_score.median()
         if runtime_weighting != 0:
@@ -2623,18 +2695,22 @@ def generate_score(
             runtime_score = runtime / runtime_scaler
             # this scales it into a similar range as SMAPE
             runtime_score = runtime_score * (smape_median / runtime_score.median())
+            score_dict['runtime'] = runtime_score * runtime_weighting
             overall_score = overall_score + (runtime_score * runtime_weighting)
         # these have values in the range 0 to 1
         if contour_weighting != 0:
             contour_score = (2 - model_results['contour_weighted']) * smape_median
+            score_dict['contour'] = contour_score * contour_weighting
             overall_score = overall_score + (contour_score * contour_weighting)
         if oda_weighting != 0:
             oda_score = (2 - model_results['oda_weighted']) * smape_median
+            score_dict['oda'] = oda_score * oda_weighting
             overall_score = overall_score + (oda_score * oda_weighting)
         if containment_weighting != 0:
             containment_score = (
                 1 + abs(prediction_interval - model_results['containment_weighted'])
             ) * smape_median
+            score_dict['contaiment'] = containment_score * containment_weighting
             overall_score = overall_score + (containment_score * containment_weighting)
 
     except Exception as e:
@@ -2646,7 +2722,10 @@ def generate_score(
             A new starting template may also help. {repr(e)}"""
         )
 
-    return overall_score.astype(float)  # need to handle complex values (!)
+    if return_score_dict:
+        return overall_score.astype(float), score_dict
+    else:
+        return overall_score.astype(float)  # need to handle complex values (!)
 
 
 def generate_score_per_series(

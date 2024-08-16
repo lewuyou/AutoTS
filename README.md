@@ -4,7 +4,11 @@
 
 AutoTS 是一个 Python 时间序列包，旨在大规模快速部署高精度预测。
 
+<<<<<<< HEAD
 2023 年，AutoTS 在 M6 预测竞赛中获胜，在 12 个月的股市预测中提供了最高绩效的投资决策。
+=======
+In 2023, AutoTS won in the M6 forecasting competition, delivering the highest performance investment decisions across 12 months of stock market forecasting.
+>>>>>>> AutoTS_Colin/dev
 
 有数十种预测模型可用于`sklearn`风格的`.fit()`和`.predict()`。
 其中包括朴素、统计、机器学习和深度学习模型。

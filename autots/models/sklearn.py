@@ -18,7 +18,7 @@ except Exception:
     pass
 from autots.models.base import ModelObject, PredictionObject
 from autots.tools.probabilistic import Point_to_Probability
-from autots.tools.seasonal import date_part, seasonal_int
+from autots.tools.seasonal import date_part, seasonal_int, random_datepart
 from autots.tools.window_functions import window_maker, last_window, sliding_window_view
 from autots.tools.cointegration import coint_johansen, btcd_decompose
 from autots.tools.holiday import holiday_flag
@@ -434,7 +434,7 @@ def retrieve_regressor(
                 verbosity=0, **model_param_dict, n_jobs=smaller_n_jobs
             )
         return regr
-    elif model_class == 'SVM':
+    elif model_class in ['SVM', "LinearSVR"]:
         from sklearn.svm import LinearSVR
 
         if multioutput:
@@ -517,7 +517,7 @@ def retrieve_regressor(
         )
     elif model_class in ["MultioutputGPR", "VectorizedMultiOutputGPR"]:
         return VectorizedMultiOutputGPR(**model_param_dict)
-    else:
+    elif model_class in ['RandomForest', 'random_forest', 'randomforest']:
         regression_model['model'] = 'RandomForest'
         from sklearn.ensemble import RandomForestRegressor
 
@@ -528,6 +528,14 @@ def retrieve_regressor(
             **model_param_dict,
         )
         return regr
+    elif model_class in ["ElasticNetwork"]:
+        from autots.models.dnn import ElasticNetwork
+
+        return ElasticNetwork(
+            random_seed=random_seed, verbose=verbose, **model_param_dict
+        )
+    else:
+        raise ValueError(f"model_class {model_class} regressor not recognized")
 
 
 def retrieve_classifier(
@@ -631,6 +639,7 @@ sklearn_model_dict = {
     'RANSAC': 0.05,
     'Ridge': 0.02,
     'GaussianProcessRegressor': 0.000000001,  # slow
+    "ElasticNetwork": 0.01,
     # 'MultioutputGPR': 0.0000001,  # memory intensive kernel killing
 }
 multivariate_model_dict = {
@@ -640,7 +649,7 @@ multivariate_model_dict = {
     'DecisionTree': 0.05,
     'KNN': 0.05,
     'Adaboost': 0.03,
-    'SVM': 0.03,
+    'SVM': 0.01,
     # 'BayesianRidge': 0.05,
     'xgboost': 0.09,
     # 'KerasRNN': 0.01,  # too slow on big data
@@ -677,7 +686,7 @@ rolling_regression_dict = {
     'DecisionTree': 0.05,
     'KNN': 0.05,
     'Adaboost': 0.03,
-    'SVM': 0.05,
+    'SVM': 0.02,
     'KerasRNN': 0.02,
     'LightGBM': 0.09,
     'LightGBMRegressorChain': 0.03,
@@ -691,7 +700,7 @@ rolling_regression_dict = {
 no_shared_model_dict = {
     'KNN': 0.1,
     'Adaboost': 0.1,
-    'SVM': 0.1,
+    'SVM': 0.01,
     'xgboost': 0.1,
     'LightGBM': 0.1,
     'HistGradientBoost': 0.1,
@@ -703,10 +712,11 @@ datepart_model_dict: dict = {
     'MLP': 0.05,
     'DecisionTree': 0.02,
     'Adaboost': 0.05,
-    'SVM': 0.01,
+    'SVM': 0.001,
     'KerasRNN': 0.01,
     # 'Transformer': 0.02,  # slow, kernel failed
     'RadiusNeighbors': 0.1,
+    "ElasticNetwork": 0.05,
 }
 datepart_model_dict_deep = {
     'RandomForest': 0.05,  # crashes sometimes at scale for unclear reasons
@@ -721,8 +731,9 @@ datepart_model_dict_deep = {
     'ExtraTrees': 0.01,  # some params cause RAM crash?
     'RadiusNeighbors': 0.1,
     'MultioutputGPR': 0.001,
+    "ElasticNetwork": 0.05,
 }
-gpu = ['Transformer', 'KerasRNN', 'MLP']  # or more accurately, no dnn
+gpu = ['Transformer', 'KerasRNN', 'MLP', "ElasticNetwork"]  # or more accurately, no dnn
 gradient_boosting = {
     'xgboost': 0.09,
     'HistGradientBoost': 0.03,
@@ -853,6 +864,7 @@ def generate_regressor_params(
             'KerasRNN': 0.05,
             'Transformer': 0.05,
             'MLP': 0.05,
+            "ElasticNetwork": 0.05,
         }
         method = "deep"
     elif method == "gradient_boosting":
@@ -887,6 +899,8 @@ def generate_regressor_params(
         'GaussianProcessRegressor',
         'MultioutputGPR',
         'SVM',
+        "ElasticNetwork",
+        "ElasticNet",
     ]:
         if model == 'Adaboost':
             param_dict = {
@@ -901,6 +915,15 @@ def generate_regressor_params(
                         [0.8, 0.1, 0.0],  # SVR slow and crash prone
                     )[0],
                     "learning_rate": random.choices([1, 0.5], [0.9, 0.1])[0],
+                },
+            }
+        elif model == 'ElasticNet':
+            param_dict = {
+                "model": 'ElasticNet',
+                "model_params": {
+                    "l1_ratio": random.choices([0.5, 0.1, 0.9], [0.7, 0.2, 0.1])[0],
+                    "fit_intercept": random.choices([True, False], [0.9, 0.1])[0],
+                    "selection": random.choices(["cyclic", "random"], [0.8, 0.1])[0],
                 },
             }
         elif model == 'xgboost':
@@ -993,25 +1016,29 @@ def generate_regressor_params(
                     "hidden_layer_sizes": random.choices(
                         [
                             (100,),
+                            (2560,),
                             (25, 15, 25),
                             (72, 36, 72),
                             (25, 50, 25),
                             (32, 64, 32),
                             (32, 32, 32),
                         ],
-                        [0.1, 0.3, 0.3, 0.1, 0.1, 0.1],
+                        [0.1, 0.3, 0.3, 0.3, 0.1, 0.1, 0.1],
                     )[0],
-                    "max_iter": np.random.choice(
-                        [250, 500, 1000], p=[0.8, 0.1, 0.1], size=1
-                    ).item(),
-                    "activation": np.random.choice(
+                    "max_iter": random.choices(
+                        [250, 500, 1000],
+                        [0.8, 0.1, 0.1],
+                    )[0],
+                    "activation": random.choices(
                         ['identity', 'logistic', 'tanh', 'relu'],
-                        p=[0.05, 0.05, 0.6, 0.3],
-                        size=1,
-                    ).item(),
+                        [0.05, 0.05, 0.6, 0.3],
+                    )[0],
                     "solver": solver,
                     "early_stopping": early_stopping,
                     "learning_rate_init": learning_rate_init,
+                    "alpha": random.choices(
+                        [None, 0.0001, 0.1, 0.0], [0.5, 0.2, 0.2, 0.2]
+                    )[0],
                 },
             }
         elif model == 'KNN':
@@ -1066,7 +1093,7 @@ def generate_regressor_params(
                     "max_features": random.choices([1, 0.6, 0.3], [0.8, 0.1, 0.1])[0],
                 },
             }
-        elif model == 'KerasRNN':
+        elif model in ['KerasRNN']:
             init_list = [
                 'glorot_uniform',
                 'lecun_uniform',
@@ -1089,8 +1116,15 @@ def generate_regressor_params(
                         ['adam', 'rmsprop', 'adagrad'], [0.4, 0.5, 0.1]
                     )[0],
                     "loss": random.choices(
-                        ['mae', 'Huber', 'poisson', 'mse', 'mape'],
-                        [0.2, 0.3, 0.1, 0.2, 0.2],
+                        [
+                            'mae',
+                            'Huber',
+                            'poisson',
+                            'mse',
+                            'mape',
+                            "mean_squared_logarithmic_error",
+                        ],
+                        [0.2, 0.3, 0.1, 0.2, 0.2, 0.1],
                     )[0],
                     "hidden_layer_sizes": random.choices(
                         [
@@ -1107,6 +1141,48 @@ def generate_regressor_params(
                         ['LSTM', 'GRU', "E2D2", "CNN"], [0.5, 0.3, 0.15, 0.01]
                     )[0],
                     "shape": random.choice([1, 2]),
+                },
+            }
+        elif model in ["ElasticNetwork"]:
+            param_dict = {
+                "model": 'ElasticNetwork',
+                "model_params": {
+                    "size": random.choices(
+                        [
+                            32,
+                            64,
+                            128,
+                            256,
+                            2560,
+                        ],
+                        [0.1, 0.3, 0.3, 0.1, 0.3],
+                    )[0],
+                    "l1": random.choices(
+                        [0.0, 0.0001, 0.01, 0.02, 0.2], [0.5, 0.3, 0.15, 0.1, 0.1]
+                    )[0],
+                    "l2": random.choices(
+                        [0.0, 0.0001, 0.01, 0.02, 0.2], [0.5, 0.3, 0.15, 0.1, 0.1]
+                    )[0],
+                    "epochs": random.choices(
+                        [10, 20, 50, 100], [0.75, 0.2, 0.05, 0.001]
+                    )[0],
+                    "batch_size": random.choices([8, 16, 32, 72], [0.2, 0.2, 0.5, 0.1])[
+                        0
+                    ],
+                    "optimizer": random.choices(
+                        ['adam', 'rmsprop', 'adagrad'], [0.8, 0.5, 0.1]
+                    )[0],
+                    "loss": random.choices(
+                        [
+                            'mae',
+                            'Huber',
+                            'poisson',
+                            'mse',
+                            'mape',
+                            "mean_squared_logarithmic_error",
+                        ],
+                        [0.2, 0.3, 0.1, 0.2, 0.2, 0.1],
+                    )[0],
                 },
             }
         elif model == 'Transformer':
@@ -1287,12 +1363,15 @@ def generate_regressor_params(
         elif model == "SVM":
             # LinearSVR
             param_dict = {
-                'C': random.choices([1.0, 0.5, 2.0, 0.25], [0.6, 0.1, 0.1, 0.1])[0],
-                'tol': random.choices([1e-4, 1e-3, 1e-5], [0.6, 0.1, 0.1])[0],
-                "loss": random.choice(
-                    ['epsilon_insensitive', 'squared_epsilon_insensitive']
-                ),
-                "max_iter": random.choice([500, 1000]),
+                "model": 'SVM',
+                "model_params": {
+                    'C': random.choices([1.0, 0.5, 2.0, 0.25], [0.6, 0.1, 0.1, 0.1])[0],
+                    'tol': random.choices([1e-4, 1e-3, 1e-5], [0.6, 0.1, 0.1])[0],
+                    "loss": random.choice(
+                        ['epsilon_insensitive', 'squared_epsilon_insensitive']
+                    ),
+                    "max_iter": random.choice([500, 1000]),
+                },
             }
         else:
             min_samples = np.random.choice(
@@ -1973,6 +2052,8 @@ class WindowRegression(ModelObject):
             max_windows_choice = random.choices(
                 [5000, 50000, 5000000, None], [0.4, 0.2, 0.9, 0.05]
             )[0]
+        elif method == "fast":
+            max_windows_choice = random.choices([10000, 100000], [0.2, 0.2])[0]
         else:
             max_windows_choice = random.choices(
                 [5000, 50000, 5000000], [0.2, 0.2, 0.9]
@@ -2268,6 +2349,9 @@ class DatepartRegression(ModelObject):
         },
         datepart_method: str = 'expanded',
         polynomial_degree: int = None,
+        holiday_countries_used: bool = False,
+        lags: int = None,
+        forward_lags: int = None,
         regression_type: str = None,
         **kwargs,
     ):
@@ -2286,6 +2370,9 @@ class DatepartRegression(ModelObject):
         self.datepart_method = datepart_method
         self.polynomial_degree = polynomial_degree
         self.forecast_length = forecast_length
+        self.lags = lags
+        self.forward_lags = forward_lags
+        self.holiday_countries_used = holiday_countries_used
 
     def fit(
         self,
@@ -2313,6 +2400,10 @@ class DatepartRegression(ModelObject):
             df.index,
             method=self.datepart_method,
             polynomial_degree=self.polynomial_degree,
+            holiday_country=self.holiday_country,
+            holiday_countries_used=self.holiday_countries_used,
+            lags=self.lags,
+            forward_lags=self.forward_lags,
         )
         if self.regression_type in ['User', 'user']:
             # regr = future_regressor.copy()
@@ -2369,7 +2460,13 @@ class DatepartRegression(ModelObject):
         predictStartTime = datetime.datetime.now()
         index = self.create_forecast_index(forecast_length=forecast_length)
         self.X_pred = date_part(
-            index, method=self.datepart_method, polynomial_degree=self.polynomial_degree
+            index,
+            method=self.datepart_method,
+            polynomial_degree=self.polynomial_degree,
+            holiday_country=self.holiday_country,
+            holiday_countries_used=self.holiday_countries_used,
+            lags=self.lags,
+            forward_lags=self.forward_lags,
         )
         if self.regression_type in ['User', 'user']:
             self.X_pred = pd.concat(
@@ -2426,18 +2523,7 @@ class DatepartRegression(ModelObject):
             )
         else:
             model_choice = generate_regressor_params(model_dict=datepart_model_dict)
-        datepart_choice = random.choices(
-            [
-                "recurring",
-                "simple",
-                "expanded",
-                "simple_2",
-                "simple_binarized",
-                "expanded_binarized",
-                'common_fourier',
-            ],
-            [0.4, 0.3, 0.3, 0.3, 0.4, 0.05, 0.05],
-        )[0]
+        datepart_choice = random_datepart()
         if datepart_choice in ["simple", "simple_2", "recurring", "simple_binarized"]:
             polynomial_choice = random.choices([None, 2, 3], [0.5, 0.2, 0.01])[0]
         else:
@@ -2450,6 +2536,11 @@ class DatepartRegression(ModelObject):
             'regression_model': model_choice,
             'datepart_method': datepart_choice,
             'polynomial_degree': polynomial_choice,
+            "holiday_countries_used": random.choices([True, False], [0.2, 0.8])[0],
+            'lags': random.choices([None, 1, 2, 3, 4], [0.9, 0.1, 0.1, 0.05, 0.05])[0],
+            'forward_lags': random.choices(
+                [None, 1, 2, 3, 4], [0.9, 0.1, 0.1, 0.05, 0.05]
+            )[0],
             'regression_type': regression_choice,
         }
         return parameter_dict
@@ -2460,6 +2551,9 @@ class DatepartRegression(ModelObject):
             'regression_model': self.regression_model,
             'datepart_method': self.datepart_method,
             'polynomial_degree': self.polynomial_degree,
+            'holiday_countries_used': self.holiday_countries_used,
+            'lags': self.lags,
+            'forward_lags': self.forward_lags,
             'regression_type': self.regression_type,
         }
         return parameter_dict
@@ -3507,7 +3601,7 @@ class VectorizedMultiOutputGPR:
         noise_var (float): noise variance, effectively regularization. Close to zero little regularization, larger values create more model flexiblity and noise tolerance.
         gamma: For the RBF, Exponential, and Locally Periodic kernels, γ is essentially an inverse length scale. [0.1,1,10,100].
         lambda_: For the Periodic and Locally Periodic kernels, \lambda_ determines the smoothness of the periodic function. A reasonable range might be [0.1,1,10,100].
-        lambda_prime: Specifically for the Locally Periodic kernel, this determines the smoothness of the periodic component. Same range as \lambda_.
+        lambda_prime: Specifically for the Locally Periodic kernel, this determines the smoothness of the periodic component. Same range as lambda_.
         p: The period parameter for the Periodic and Locally Periodic kernels such as 7 or 365.25 for daily data.
     """
 
@@ -3760,6 +3854,9 @@ class PreprocessingRegression(ModelObject):
         self.transformer_object = GeneralTransformer(
             n_jobs=self.n_jobs,
             holiday_country=self.holiday_country,
+            verbose=self.verbose,
+            random_seed=self.random_seed,
+            forecast_length=self.forecast_length,
             **self.transformation_dict,
         )
         forecast_length = self.forecast_length

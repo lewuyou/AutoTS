@@ -13,12 +13,17 @@
 * Forecasts are desired for the future immediately following the most recent data.
 * trimmed_mean to AverageValueNaive
 
-# 0.6.11 🇺🇦 🇺🇦 🇺🇦
+# 0.6.15 🇺🇦 🇺🇦 🇺🇦
+* Constraint transformer added
+* historical_growth constraint method added
+* fft as multivariate_feature for Cassandra
+* None trend_window now searched as part of Cassandra
+* "quarterlydayofweek" method added for datepart
+* threshold_method arg to AlignLastValue
+* general tempate updated
+* slight change to MATSE metric, now only abs values for scaling
+* additional args to DatepartRegression
 * bug fixes
-* continually trying to keep up with the Pandas maintainers who are breaking stuff for no good reasonable
-* updated RollingMeanTransformer and RegressionFilter, RegressionFilter should now be less memory intensive
-* EIA data call to load_live_daily
-* horizontal_ensemble_validation arg for more complete validation on these ensembles
 
 ### Unstable Upstream Pacakges (those that are frequently broken by maintainers)
 * Pytorch-Forecasting

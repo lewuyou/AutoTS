@@ -289,6 +289,13 @@ contour和MADE度量标准有用，因为它们鼓励'波浪型'预测，即，�
 
 如果某个度量标准在初始结果中完全是NaN，可能是因为保留的数据在实际中完全是NaN。
 
+<<<<<<< HEAD
+=======
+It may be worth viewing something like: `model.score_breakdown[model.score_breakdown.index == model.best_model_id].iloc[0]` to see if any one score is skewing selection. 
+Generally you would want the numbers here to follow the balance requested in the `metric_weighting`.
+
+##### Plots
+>>>>>>> AutoTS_Colin/dev
 ```python
 import matplotlib.pyplot as plt
 
@@ -890,7 +897,7 @@ df_inv_return = trans.inverse_transform(df_trans, trans_method="original")  # fo
 |  KalmanStateSpace       |              |                         |    True       |                 |       |              |              |               |
 |  FFT                    |              |                         |    True       |                 |       |              |              |               |
 |  TiDE                   | tensorflow   |                         |               |                 | yes   | True         |              |               |
-|  NeuralForecast         | NeuralForecast |                       |    True       |                 | yes   | True         | True         | True          |
+|  NeuralForecast         | NeuralForecast |                       |    True       |                 | yes   | True         |              | True          |
 |  MotifSimulation        | sklearn.metrics.pairwise |             |    True       |     joblib      |       | True         | True         |               |
 |  Greykite               | (deprecated) |                         |    True       |     joblib      |       |              | True         |               |
 |  TensorflowSTS          | (deprecated) |                         |    True       |                 | yes   | True         | True         |               |
