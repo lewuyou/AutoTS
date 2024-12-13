@@ -4,11 +4,7 @@
 
 AutoTS 是一个 Python 时间序列包，旨在大规模快速部署高精度预测。
 
-<<<<<<< HEAD
 2023 年，AutoTS 在 M6 预测竞赛中获胜，在 12 个月的股市预测中提供了最高绩效的投资决策。
-=======
-In 2023, AutoTS won in the M6 forecasting competition, delivering the highest performance investment decisions across 12 months of stock market forecasting.
->>>>>>> AutoTS_Colin/dev
 
 有数十种预测模型可用于`sklearn`风格的`.fit()`和`.predict()`。
 其中包括朴素、统计、机器学习和深度学习模型。
@@ -62,10 +58,10 @@ df = load_daily(long=long)
 
 model = AutoTS(
     forecast_length=21,
-    frequency='infer',
+    frequency="infer",
     prediction_interval=0.9,
-    ensemble='auto',
-    model_list="fast",  # "superfast", "default", "fast_parallel"
+    ensemble=None,
+    model_list="superfast",  # "fast", "default", "fast_parallel"
     transformer_list="fast",  # "superfast",
     drop_most_recent=1,
     max_generations=4,
@@ -98,39 +94,75 @@ model_results = model.results()
 validation_results = model.results("validation")
 ```
 
-lower-level API，特别是 scikit-learn 风格的大部分time series transformers，也可以独立于 AutoML 框架使用。
+The lower-level API, in particular the large section of time series transformers in the scikit-learn style, can also be utilized independently from the AutoML framework.
 
-查看 [extended_tutorial.md](https://winedarksea.github.io/AutoTS/build/html/source/tutorial.html) 以获取更详细的功能指南。
+Check out [extended_tutorial.md](https://winedarksea.github.io/AutoTS/build/html/source/tutorial.html) for a more detailed guide to features.
 
-另请查看[production_example.py](https://github.com/winedarksea/AutoTS/blob/master/production_example.py)
+Also take a look at the [production_example.py](https://github.com/winedarksea/AutoTS/blob/master/production_example.py)
 
-## 速度和大数据的提示：
-* 使用适当的模型列表，尤其是预定义的列表：
-	* `superfast` （简单的朴素模型）和 `fast` （更复杂但仍然更快的模型，针对许多系列进行了优化）
-	* `fast_parallel`（`fast`和`parallel`的组合）或`parallel`，假设有许多 CPU 核心可用
-		* `n_jobs` 通常与  `='auto'` 非常接近，但根据环境进行必要的调整
-	* 使用`from autots.models.model_list import model_lists`查看预定义列表的字典（一些定义供内部使用）
-* 使用`subset`参数，当存在许多相似的序列时，`subset=100`通常对成千上万个类似的序列概括得很好。
-	* 如果使用`subset`，为序列传递`weights`会使子集选择偏向于优先级更高的序列。
-	* 如果受到RAM限制，可以通过在不同批次的数据上运行多个AutoTS实例来分布式处理，首先导入一个预先训练好的模板，作为所有实例的起点。
-* 设置`model_interrupt=True`，当按下`KeyboardInterrupt`，即`ctrl+c`时，会跳过当前模型（尽管如果中断发生在生成之间，它会停止整个训练）。
-* 使用`.fit()`的`result_file`方法，它会在每一代结束后保存进度 - 这对于长时间的训练非常有帮助。使用`import_results`来恢复进度。
-* 虽然转换（Transformations）相当快，但将`transformer_max_depth`设置为较低的数值（例如，2）将提高速度。同时使用`transformer_list`设置为'fast'或'superfast'。
-* 查看[这个例子](https://github.com/winedarksea/AutoTS/discussions/76)，了解如何将AutoTS与pandas UDF一起使用。
-* 显然，集成模型（Ensembles）预测较慢，因为它们需要运行多个模型，'distance'模型慢2倍，'simple'模型慢3到5倍。
-	* 使用`ensemble='horizontal-max'`结合`model_list='no_shared_fast'`可以在有许多CPU核的情况下相对好地扩展，因为每个模型只在所需的序列上运行。
-* 减少`num_validations`和`models_to_validate`会减少运行时间，但可能导致模型选择不佳。
-* 对于记录数量较多的数据集，上采样（例如，从每日到每月频率预测）如果合适的话，可以缩短训练时间。
-	* 这可以通过调整`frequency`和`aggfunc`来完成，但最好在将数据传入AutoTS之前进行。
-* 如果NaN已经被填充，则处理会更快。如果不需要寻找最佳NaN填充方法，则在传递给类之前用一种合适的方法填充所有NaN。
-* 在`metric_weighting`中将`runtime_weighting`设置为较高的值。这会引导搜索朝向更快的模型，尽管可能会牺牲一些精度。
+## Tips for Speed and Large Data:
+* Use appropriate model lists, especially the predefined lists:
+	* `superfast` (simple naive models) and `fast` (more complex but still faster models, optimized for many series)
+	* `fast_parallel` (a combination of `fast` and `parallel`) or `parallel`, given many CPU cores are available
+		* `n_jobs` usually gets pretty close with `='auto'` but adjust as necessary for the environment
+	* 'scalable' is the best list to avoid crashing when many series are present. There is also a transformer_list = 'scalable'
+	* see a dict of predefined lists (some defined for internal use) with `from autots.models.model_list import model_lists`
+* Use the `subset` parameter when there are many similar series, `subset=100` will often generalize well for tens of thousands of similar series.
+	* if using `subset`, passing `weights` for series will weight subset selection towards higher priority series.
+	* if limited by RAM, it can be distributed by running multiple instances of AutoTS on different batches of data, having first imported a template pretrained as a starting point for all.
+* Set `model_interrupt=True` which passes over the current model when a `KeyboardInterrupt` ie `crtl+c` is pressed (although if the interrupt falls between generations it will stop the entire training).
+* Use the `result_file` method of `.fit()` which will save progress after each generation - helpful to save progress if a long training is being done. Use `import_results` to recover.
+* While Transformations are pretty fast, setting `transformer_max_depth` to a lower number (say, 2) will increase speed. Also utilize `transformer_list` == 'fast' or 'superfast'.
+* Check out [this example](https://github.com/winedarksea/AutoTS/discussions/76) of using AutoTS with pandas UDF.
+* Ensembles are obviously slower to predict because they run many models, 'distance' models 2x slower, and 'simple' models 3x-5x slower.
+	* `ensemble='horizontal-max'` with `model_list='no_shared_fast'` can scale relatively well given many cpu cores because each model is only run on the series it is needed for.
+* Reducing `num_validations` and `models_to_validate` will decrease runtime but may lead to poorer model selections.
+* For datasets with many records, upsampling (for example, from daily to monthly frequency forecasts) can reduce training time if appropriate.
+	* this can be done by adjusting `frequency` and `aggfunc` but is probably best done before passing data into AutoTS.
+* It will be faster if NaN's are already filled. If a search for optimal NaN fill method is not required, then fill any NaN with a satisfactory method before passing to class.
+* Set `runtime_weighting` in `metric_weighting` to a higher value. This will guide the search towards faster models, although it may come at the expense of accuracy. 
+* Memory shortage is the most common cause of random process/kernel crashes. Try testing a data subset and using a different model list if issues occur. Please also report crashes if found to be linked to a specific set of model parameters (not AutoTS parameters but the underlying forecasting model params). Also crashes vary significantly by setup such as underlying linpack/blas so seeing crash differences between environments can be expected. 
 
-## 如何贡献：
-* 对你觉得文档混乱的地方提供反馈
-* 使用AutoTS并且...
-	* 通过在GitHub上添加Issues来报告错误和请求功能
-	* 发布适合你数据的顶级模型模板（以帮助改进起始模板）
-	* 随意推荐你最喜欢的模型的不同搜索网格参数
-* 当然，也可以直接在GitHub上对代码库做出贡献。
+## How to Contribute:
+* Give feedback on where you find the documentation confusing
+* Use AutoTS and...
+	* Report errors and request features by adding Issues on GitHub
+	* Posting the top model templates for your data (to help improve the starting templates)
+	* Feel free to recommend different search grid parameters for your favorite models
+* And, of course, contributing to the codebase directly on GitHub.
 
-*也被称为Project CATS（Catlin的自动时间序列），因此有这个logo。*
+
+## AutoTS Process
+```mermaid
+flowchart TD
+    A[Initiate AutoTS Model] --> B[Import Template]
+    B --> C[Load Data]
+    C --> D[Split Data Into Initial Train/Test Holdout]
+    D --> E[Run Initial Template Models]
+    E --> F[Evaluate Accuracy Metrics on Results]
+    F --> G[Generate Score from Accuracy Metrics]
+    G --> H{Max Generations Reached or Timeout?}
+
+    H -->|No| I[Evaluate All Previous Templates]
+    I --> J[Genetic Algorithm Combines Best Results and New Random Parameters into New Template]
+    J --> K[Run New Template Models and Evaluate]
+    K --> G
+
+    H -->|Yes| L[Select Best Models by Score for Validation Template]
+    L --> M[Run Validation Template on Additional Holdouts]
+    M --> N[Evaluate and Score Validation Results]
+    N --> O{Create Ensembles?}
+    
+    O -->|Yes| P[Generate Ensembles from Validation Results]
+    P --> Q[Run Ensembles Through Validation]
+    Q --> N
+
+    O -->|No| R[Export Best Models Template]
+    R --> S[Select Single Best Model]
+    S --> T[Generate Future Time Forecast]
+    T --> U[Visualize Results]
+
+    R --> B[Import Best Models Template]
+```
+
+*Also known as Project CATS (Catlin's Automated Time Series) hence the logo.*

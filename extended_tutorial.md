@@ -75,10 +75,7 @@ print(model)
 4. 人为的历史事件，一个简单的例子是销售促销活动。使用回归器是处理这类事件的最常见方法，对于建模这些类型的事件可能至关重要。
 
 在自动预测之前你不需要做的事情是任何典型的预处理。最好让模型选择过程来选择，因为不同的模型对不同类型的预处理有不同的表现。
-
-### 验证和交叉验证
-交叉验证有助于确保最佳模型在时间序列的动态中稳定。
-由于需要防止未来数据点的数据泄露，交叉验证在时间序列数据中可能比较棘手。
+在新的数据集上加载模板失败的最常见原因之一是模型在太短（或基本上全部缺失）的系列上失败。在继续之前，请过滤掉太新或已停产的系列。
 
 首先，所有模型最初都在最新的数据片段上进行验证。这是因为最近的数据通常最能接近预测的未来。
 在数据量非常小的情况下，可能没有足够的数据进行交叉验证，在这种情况下，`num_validations`可以设置为0。这也可以加速快速测试。
@@ -289,13 +286,10 @@ contour和MADE度量标准有用，因为它们鼓励'波浪型'预测，即，�
 
 如果某个度量标准在初始结果中完全是NaN，可能是因为保留的数据在实际中完全是NaN。
 
-<<<<<<< HEAD
-=======
 It may be worth viewing something like: `model.score_breakdown[model.score_breakdown.index == model.best_model_id].iloc[0]` to see if any one score is skewing selection. 
 Generally you would want the numbers here to follow the balance requested in the `metric_weighting`.
 
 ##### Plots
->>>>>>> AutoTS_Colin/dev
 ```python
 import matplotlib.pyplot as plt
 
@@ -896,8 +890,12 @@ df_inv_return = trans.inverse_transform(df_trans, trans_method="original")  # fo
 |  Cassandra              | scipy        |                         |    True       |                 |       | True         |              | True          |
 |  KalmanStateSpace       |              |                         |    True       |                 |       |              |              |               |
 |  FFT                    |              |                         |    True       |                 |       |              |              |               |
+|  DMD                    |              |                         |    True       |                 |       | True         |              |               |
+|  BasicLinearModel       |              |                         |    True       |                 |       |              |              | True          |
 |  TiDE                   | tensorflow   |                         |               |                 | yes   | True         |              |               |
 |  NeuralForecast         | NeuralForecast |                       |    True       |                 | yes   | True         |              | True          |
+|  TVVAR                  |              |                         |    True       |                 |       | True         |              | True          |
+| BallTreeRegressionMotif | sklearn      |                         |    True       |     joblib      |       | True         |              | True          |
 |  MotifSimulation        | sklearn.metrics.pairwise |             |    True       |     joblib      |       | True         | True         |               |
 |  Greykite               | (deprecated) |                         |    True       |     joblib      |       |              | True         |               |
 |  TensorflowSTS          | (deprecated) |                         |    True       |                 | yes   | True         | True         |               |
