@@ -14,6 +14,13 @@
     * holiday=false -> 调休上班日（周末上班）
     * 用 curl 带浏览器 UA 即可过 Cloudflare，不需要登录。
 
+入库表 holiday_calendar 字段含义：
+    date                  日期（日频，主键）
+    is_holiday            是否放假（法定节假日 / 周末 / 调休后放假的周末）
+    holiday_name          节假日名称（如 "国庆节"，普通周末/工作日为空字符串）
+    is_workday_adjustment 是否调休上班日（周末上班的调休日）
+    is_holiday_related    是否节假日相关日期 = is_holiday OR is_workday_adjustment
+
 依赖：
     pip install duckdb
 """

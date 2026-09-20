@@ -13,6 +13,12 @@
 依赖：
     pip install duckdb playwright
     playwright install chromium
+
+入库表 baidu 字段含义：
+    keyword  搜索关键词（如 "金龙鱼"）
+    source   指数类型：search_all=搜索指数（整体=PC+移动），feed=资讯指数
+    date     日期（日频）
+    value    指数值（整数，空值记 None；资讯指数自 2017-07-03 才有数据）
 """
 
 import argparse

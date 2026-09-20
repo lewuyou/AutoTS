@@ -14,6 +14,16 @@ https://emdata.eastmoney.com/gzfx/detail.html?fc=300999.SZ&fn=%E9%87%91%E9%BE%99
     INDICATORTYPE: 1=市盈率 2=市净率 3=市销率 4=市现率
     DATETYPE:      1=近1年(日频) 2=近3年(周频) 3=近5年(周频) 4=近10年(周频)
 
+入库表 gzfx 字段含义（按 (code, indicator, date) 合并走势与通道两类数据）：
+    code         股票代码（6 位数字）
+    indicator    指标类型：pe=市盈率 pb=市净率 ps=市销率 pcf=市现率
+    date         交易日期
+    value        实际估值（PE/PB/PS/PCF 的 TTM 值，来自走势接口 INDICATOR_VALUE）
+    stock_price  股价（元，来自通道接口 STOCK_PRICE）
+    pass1~pass5  估值通道 5 条带的下轨~上轨价格（元），即股价处于该带时对应估值为 mult1~mult5
+    mult1~mult5  通道带对应的估值倍数（如 pe 的 5 档倍数），pass1~5 = 每股净资产/盈利等 × mult1~5
+    注：走势数据日频/周频每天都有 value；通道数据仅在通道带重算日有 pass/mult，其余日为 None。
+
 依赖：
     pip install duckdb
 """

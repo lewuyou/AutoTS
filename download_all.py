@@ -9,24 +9,25 @@
     python -m AutoTS.download_all --source holiday         # 只抓节假日
     python -m AutoTS.download_all --source gzfx            # 只抓估值通道
     python -m AutoTS.download_all --source nbjb            # 只抓业绩报告
+    python -m AutoTS.download_all --source rzrq            # 只抓融资融券
     python -m AutoTS.download_all --source all             # 抓全部
     python -m AutoTS.download_all --start 2013-01-01       # 指定起始日期
     python -m AutoTS.download_all --keywords 金龙鱼,浪潮信息
-    python -m AutoTS.download_all --codes 300999,601318    # 估值通道/业绩报告股票代码
+    python -m AutoTS.download_all --codes 300999,688223    # 估值/业绩/两融股票代码
     python -m AutoTS.download_all --cookie-file c.txt      # 百度 Cookie 文件
     python -m AutoTS.download_all --headless               # 百度无头模式
 
 说明：
     * 每个数据源独立抓取，一个失败不影响另一个。
     * 默认只抓当年数据（日常增量）；传 --start 可抓历史。
-    * 百度指数需要 Cookie；节假日、估值通道、业绩报告不需要。
+    * 百度指数需要 Cookie；节假日、估值通道、业绩报告、融资融券不需要。
 """
 
 import argparse
 import datetime
 import sys
 
-from AutoTS.download import baidu, gzfx, holiday, nbjb
+from AutoTS.download import baidu, gzfx, holiday, nbjb, rzrq
 
 
 def run_source(name, args):
@@ -62,6 +63,11 @@ def run_source(name, args):
                 codes=args.codes,
                 db_path=args.nbjb_db,
             )
+        elif name == "rzrq":
+            result = rzrq.run(
+                codes=args.codes,
+                db_path=args.rzrq_db,
+            )
         else:
             raise ValueError(f"未知数据源: {name}")
         return True, result
@@ -74,14 +80,14 @@ def main():
     parser.add_argument(
         "--source",
         default="all",
-        choices=["all", "baidu", "holiday", "gzfx", "nbjb"],
+        choices=["all", "baidu", "holiday", "gzfx", "nbjb", "rzrq"],
         help="要抓取的数据源，默认 all",
     )
     parser.add_argument("--start", default=None, help="起始日期 YYYY-MM-DD（默认当年 1 月 1 日）")
     parser.add_argument("--end", default=None, help="结束日期 YYYY-MM-DD（默认今天/当年 12 月 31 日）")
     parser.add_argument("--years", default=None, help="逗号分隔年份，如 2024,2025,2026（节假日优先）")
     parser.add_argument("--keywords", default=None, help="逗号分隔关键词（百度指数）")
-    parser.add_argument("--codes", default=None, help="逗号分隔股票代码（估值通道/业绩报告），如 300999,601318")
+    parser.add_argument("--codes", default=None, help="逗号分隔股票代码（估值/业绩/两融），如 300999,688223")
     parser.add_argument("--datetype", type=int, default=1, choices=[1, 2, 3, 4],
                         help="估值通道时间范围：1=近1年(日频) 2=近3年 3=近5年 4=近10年，默认 1")
     parser.add_argument("--cookie-file", default=None, help="百度 Cookie 文件路径")
@@ -89,11 +95,12 @@ def main():
     parser.add_argument("--holiday-db", default=None, help="节假日 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--gzfx-db", default=None, help="估值通道 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--nbjb-db", default=None, help="业绩报告 DuckDB 路径（默认 download/autots.duckdb）")
+    parser.add_argument("--rzrq-db", default=None, help="融资融券 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--headless", action="store_true", help="百度指数无头模式")
     parser.add_argument("--no-csv", action="store_true", help="不写 CSV，只入库")
     args = parser.parse_args()
 
-    sources = ["baidu", "holiday", "gzfx", "nbjb"] if args.source == "all" else [args.source]
+    sources = ["baidu", "holiday", "gzfx", "nbjb", "rzrq"] if args.source == "all" else [args.source]
     results = {}
     failed = []
 
