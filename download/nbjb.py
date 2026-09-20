@@ -2,7 +2,7 @@
 """东方财富业绩报告抓取入库模块（每股收益/营业收入/归母净利润，季频）。
 
 可独立运行，也可由 download_all.py 调用 run()。
-
+https://emdata.eastmoney.com/nbjb/detail.html?fc=300999&fn=%E9%87%91%E9%BE%99%E9%B1%BC
 用法（独立运行）：
     python -m AutoTS.download.nbjb                          # 抓默认股票
     python -m AutoTS.download.nbjb --codes 300999,601318    # 指定股票代码

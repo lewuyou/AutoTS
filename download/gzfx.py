@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """东方财富估值通道抓取入库模块（市盈率/市净率/市销率/市现率，日频）。
-
+https://emdata.eastmoney.com/gzfx/detail.html?fc=300999.SZ&fn=%E9%87%91%E9%BE%99%E9%B1%BC
 可独立运行，也可由 download_all.py 调用 run()。
 
 用法（独立运行）：
