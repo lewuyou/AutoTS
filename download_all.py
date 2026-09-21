@@ -32,8 +32,8 @@ import argparse
 import datetime
 import sys
 
-from AutoTS.download import baidu, gzfx, holiday, nbjb, rzrq
-from AutoTS.download.tv import tradingview, tradingview_study
+from download import baidu, gzfx, holiday, nbjb, rzrq
+from download.tv import tradingview, tradingview_study
 
 
 def run_source(name, args):
