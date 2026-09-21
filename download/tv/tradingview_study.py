@@ -17,18 +17,43 @@
     3. 布局配置：tv_layout_{布局编号}.json（布局 HTML 的 initData.content，含指标 inputs）
 
 用法（独立运行）：
-    python -m AutoTS.download.tradingview_study                          # 默认布局+默认股票
-    python -m AutoTS.download.tradingview_study --codes 688223,300999
-    python -m AutoTS.download.tradingview_study --layout dP9MRLfC --start 2026-01-01
-    python -m AutoTS.download.tradingview_study --no-proxy
+    python -m AutoTS.download.tv.tradingview_study                          # 默认布局+默认股票
+    python -m AutoTS.download.tv.tradingview_study --codes 688223,300999
+    python -m AutoTS.download.tv.tradingview_study --layout dP9MRLfC --start 2026-01-01
+    python -m AutoTS.download.tv.tradingview_study --no-proxy
 
 入库表 tradingview_study 字段含义（长表）：
-    symbol    股票代码
-    date      交易日
-    study_id  布局里指标的 id（如 RB5CWA）
-    metainfo  指标脚本标识（如 Script$STD;RSI@tv-scripting-101）
-    plot_idx  输出线序号（一个指标有多条输出线，如 MACD/Signal/Histogram）
-    value     指标值（空值已过滤）
+    symbol      股票代码
+    date        交易日
+    study_id    布局里指标的 id（如 RB5CWA）
+    metainfo    指标脚本标识（如 Script$STD;RSI@tv-scripting-101）
+    study_name  可读指标名（如 RSI / GM_V2_KDJ，见 STUDY_NAMES）
+    plot_idx    输出线序号（一个指标有多条输出线，如 MACD/Signal/Histogram）
+    value       指标值（空值已过滤）
+
+当前布局 dP9MRLfC 各指标 plot_idx 对照（名称已从布局图例确认）：
+    RB5CWA  RSI (14, 收价, SMA 信号)
+            plot0=RSI 值(0-100)  plot1=中线50(恒定)  plot2=RSI 的 SMA 信号线
+            plot7/10/12/13=带宽/背景等辅助 plot（恒为 2 或 0，无分析价值）
+    DBco3o  PEG比率 (Fund_price_earnings_growth_ratio)
+            plot0=PEG 值
+    KjCwTh  ADX and DI (14, 20)  —— 与 6Qwk52 为同一指标重复加载，数值一致
+            plot0/plot1/plot2 = +DI / -DI / ADX（待对照确认顺序）
+    6Qwk52  ADX and DI (14, 20)  同上
+    LVUaCK  GM_V2_KDJ (9, 3)
+            plot0/plot1/plot2 = K / D / J  plot3=0/1 信号
+    DJtOcO  SQZMOM + time frame (日线, 20, 2)
+            plot0=动量值  plot1=状态(0-3)  plot2=恒0  plot3=常量(4-6)
+    fxx3m9  CM_Ult_MacD_MTF (60分/12/26/9)  多周期 MACD
+            plot0/2/4/6=各周期 MACD 值  plot1/3/7=对应信号/档位(2-6 小整数)
+    jT9ARG  TurnOver% 换手率 (20)
+            plot0/plot1 = 换手率 / 其均线(或反之)
+    SD8bVi  TMF资金流 (21)
+            plot0=主值  plot1=正值部分  plot2=负值部分(0 填充)
+    zKs55t  成交量流向 (130, 0.2, 2.5, 5)
+            plot0=柱(恒0,可能未启用)  plot2/plot3=两条主线(数值接近)
+    7eBG0W  OBV MACD Indicator (DEMA 9/26)
+            plot0=恒0  plot1=OBV MACD 值  plot2=0/1 信号
 """
 
 import argparse
@@ -56,7 +81,7 @@ try:
 except ImportError:
     requests = None
 
-DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "autots.duckdb")
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "autots.duckdb")
 DEFAULT_CODES = ["688223"]
 DEFAULT_LAYOUT = "dP9MRLfC"
 TABLE_NAME = "tradingview_study"
@@ -72,6 +97,21 @@ RETRY_DELAY = 3    # 每轮重试间隔秒数
 _DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_COOKIE_FILE = os.path.join(_DIR, "tv_cookie.txt")
 DEFAULT_TEXTS_FILE = os.path.join(_DIR, "tv_study_texts.json")
+
+# 布局 dP9MRLfC 各 study_id 的可读指标名（从布局页面图例读取，用于 study_name 列）
+STUDY_NAMES = {
+    "7eBG0W": "OBV MACD Indicator",
+    "fxx3m9": "CM_Ult_MacD_MTF",
+    "LVUaCK": "GM_V2_KDJ",
+    "KjCwTh": "ADX and DI",
+    "6Qwk52": "ADX and DI",
+    "RB5CWA": "RSI",
+    "DJtOcO": "SQZMOM + time frame",
+    "DBco3o": "PEG比率",
+    "jT9ARG": "TurnOver% 换手率",
+    "zKs55t": "成交量流向",
+    "SD8bVi": "TMF资金流",
+}
 
 
 def _require():
@@ -308,6 +348,11 @@ def fetch_symbol_studies(symbol, studies, auth_token, layout_id, cookie, use_pro
 
 
 def ts_to_date(ts):
+    """UTC 时间戳 -> 北京时间交易日 YYYY-MM-DD。
+
+    TradingView 日频 K 线时间戳 = 该市场开盘时刻的 UTC 时间，
+    全球主要市场开盘时刻换算成 UTC+8 后都落在同一天，故统一按 UTC+8 转日期即可。
+    """
     return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) \
         .astimezone(datetime.timezone(datetime.timedelta(hours=8))).date().isoformat()
 
@@ -318,6 +363,7 @@ def studies_to_rows(symbol_code, study_data, studies, start=None, end=None):
     rows = []
     for st_id, pts in study_data.items():
         metainfo = meta_map.get(st_id, "")
+        study_name = STUDY_NAMES.get(st_id, "")
         for ts, vals in pts:
             d = ts_to_date(ts)
             if start and d < start:
@@ -329,7 +375,7 @@ def studies_to_rows(symbol_code, study_data, studies, start=None, end=None):
                     continue
                 if isinstance(val, bool):
                     continue
-                rows.append((symbol_code, d, st_id, metainfo, idx, float(val)))
+                rows.append((symbol_code, d, st_id, metainfo, study_name, idx, float(val)))
     return rows
 
 
@@ -344,14 +390,19 @@ def ingest(rows, db_path=DEFAULT_DB_PATH):
                 date DATE,
                 study_id TEXT,
                 metainfo TEXT,
+                study_name TEXT,
                 plot_idx INTEGER,
                 value DOUBLE,
                 PRIMARY KEY (symbol, date, study_id, plot_idx)
             )
             """
         )
+        # 兼容旧表（无 study_name 列）
+        cols = [r[1] for r in con.execute(f"PRAGMA table_info({TABLE_NAME})").fetchall()]
+        if "study_name" not in cols:
+            con.execute(f"ALTER TABLE {TABLE_NAME} ADD COLUMN study_name TEXT")
         con.executemany(
-            f"INSERT OR REPLACE INTO {TABLE_NAME} (symbol, date, study_id, metainfo, plot_idx, value) VALUES (?, ?, ?, ?, ?, ?)",
+            f"INSERT OR REPLACE INTO {TABLE_NAME} (symbol, date, study_id, metainfo, study_name, plot_idx, value) VALUES (?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
     finally:
@@ -367,8 +418,8 @@ def run(codes=None, layout_id=DEFAULT_LAYOUT, start=None, end=None,
         codes: 股票代码列表，默认 ["688223"]
         layout_id: 布局编号，默认 dP9MRLfC
         start/end: 日期过滤 YYYY-MM-DD
-        cookie_file: cookie 文件，默认 download/tv_cookie.txt
-        texts_file: 加密 text 缓存，默认 download/tv_study_texts.json
+        cookie_file: cookie 文件，默认 download/tv/tv_cookie.txt
+        texts_file: 加密 text 缓存，默认 download/tv/tv_study_texts.json
         db_path: DuckDB 路径，默认 download/autots.duckdb
         use_proxy: 是否走本机 7897 代理
     返回：

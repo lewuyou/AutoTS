@@ -8,11 +8,11 @@
 可独立运行，也可由 download_all.py 调用 run()。
 
 用法（独立运行）：
-    python -m AutoTS.download.tradingview                      # 抓默认股票，全历史
-    python -m AutoTS.download.tradingview --codes 688223,300999
-    python -m AutoTS.download.tradingview --start 2023-01-01   # 只入库该日期之后
-    python -m AutoTS.download.tradingview --cookie-file c.txt  # 从文件读 Cookie（可选）
-    python -m AutoTS.download.tradingview --no-proxy           # 不走代理
+    python -m AutoTS.download.tv.tradingview                      # 抓默认股票，全历史
+    python -m AutoTS.download.tv.tradingview --codes 688223,300999
+    python -m AutoTS.download.tv.tradingview --start 2023-01-01   # 只入库该日期之后
+    python -m AutoTS.download.tv.tradingview --cookie-file c.txt  # 从文件读 Cookie（可选）
+    python -m AutoTS.download.tv.tradingview --no-proxy           # 不走代理
 
 依赖：
     pip install duckdb websocket-client
@@ -43,7 +43,7 @@ try:
 except ImportError:
     websocket = None
 
-DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "autots.duckdb")
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "autots.duckdb")
 DEFAULT_CODES = ["688223"]
 TABLE_NAME = "tradingview"
 WS_URL = "wss://data.tradingview.com/socket.io/websocket"
@@ -175,7 +175,12 @@ def fetch_bars(symbol, interval="1D", n_bars=N_BARS, cookie=None, use_proxy=True
 
 
 def ts_to_date(ts):
-    """UTC 时间戳 -> 北京时间交易日 YYYY-MM-DD。"""
+    """UTC 时间戳 -> 北京时间交易日 YYYY-MM-DD。
+
+    TradingView 日频 K 线时间戳 = 该市场开盘时刻的 UTC 时间
+    （A股/港股 UTC 01:30、美股 UTC 13:30、欧股 UTC 07:00 等），
+    全球主要市场开盘时刻换算成 UTC+8 后都落在同一天，故统一按 UTC+8 转日期即可。
+    """
     return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) \
         .astimezone(datetime.timezone(datetime.timedelta(hours=8))).date().isoformat()
 

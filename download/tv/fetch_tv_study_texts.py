@@ -13,9 +13,9 @@
     * 布局里指标的版本升级了（metaInfo 里 [v.xx] 变了）
 
 用法：
-    python -m AutoTS.download.fetch_tv_study_texts --layout dP9MRLfC
-    python -m AutoTS.download.fetch_tv_study_texts --layout dP9MRLfC --cookie-file tv_cookie.txt
-    python -m AutoTS.download.fetch_tv_study_texts --layout dP9MRLfC --out tv_study_texts.json --headless
+    python -m AutoTS.download.tv.fetch_tv_study_texts --layout dP9MRLfC
+    python -m AutoTS.download.tv.fetch_tv_study_texts --layout dP9MRLfC --cookie-file tv_cookie.txt
+    python -m AutoTS.download.tv.fetch_tv_study_texts --layout dP9MRLfC --out tv_study_texts.json --headless
 
 流程：
     1. 读 cookie（tv_cookie.txt，需含 sessionid，登录态）
@@ -135,7 +135,7 @@ def fetch_texts(layout_id, cookie_file=DEFAULT_COOKIE_FILE, out_file=DEFAULT_OUT
 
     # 合并布局配置里的 metaInfo（从布局 HTML 提取，便于阅读）
     try:
-        from AutoTS.download import tradingview_study as ts
+        from AutoTS.download.tv import tradingview_study as ts
         cookie_str = open(cookie_file, encoding="utf-8").read().strip()
         _, content = ts.fetch_layout_page(layout_id, cookie_str, use_proxy=use_proxy)
         meta = {}
@@ -165,8 +165,8 @@ def fetch_texts(layout_id, cookie_file=DEFAULT_COOKIE_FILE, out_file=DEFAULT_OUT
 def main():
     parser = argparse.ArgumentParser(description="抓取 TradingView 布局指标的加密 text")
     parser.add_argument("--layout", required=True, help="布局编号（图表 URL 里的那段，如 dP9MRLfC）")
-    parser.add_argument("--cookie-file", default=DEFAULT_COOKIE_FILE, help="cookie 文件（默认 download/tv_cookie.txt）")
-    parser.add_argument("--out", default=DEFAULT_OUT_FILE, help="输出文件（默认 download/tv_study_texts.json）")
+    parser.add_argument("--cookie-file", default=DEFAULT_COOKIE_FILE, help="cookie 文件（默认 download/tv/tv_cookie.txt）")
+    parser.add_argument("--out", default=DEFAULT_OUT_FILE, help="输出文件（默认 download/tv/tv_study_texts.json）")
     parser.add_argument("--wait", type=int, default=20, help="等图表加载的秒数（默认 20，指标多/网络慢可加大）")
     parser.add_argument("--headless", action="store_true", help="无头模式（默认有头，便于观察是否加载成功）")
     parser.add_argument("--no-proxy", action="store_true", help="不走本机 7897 代理")

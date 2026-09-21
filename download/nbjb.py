@@ -12,6 +12,19 @@ https://emdata.eastmoney.com/nbjb/detail.html?fc=300999&fn=%E9%87%91%E9%BE%99%E9
     字段: BASIC_EPS 每股收益(元), TOTAL_OPERATE_INCOME 营业总收入(元) + _TQ 同比%,
           PARENT_NETPROFIT 归母净利润(元) + _TQ 同比%, REPORTDATE 报告期, NOTICE_DATE 公告日
 
+入库表 nbjb 字段含义（季频，主键 (code, report_date)）：
+    code                      股票代码（6 位数字）
+    name                      股票简称
+    report_date               报告期截止日（如 2021-03-31 表示 2021 年一季报期末）
+    report_q                  报告期季度标识（如 "2021Q1"，来自 REPORTDATEWZ）
+    report_label              报告期中文标签（如 "2021年 一季报"，来自 REPORTDATEYW）
+    eps                       基本每股收益（元，来自 BASIC_EPS）
+    total_operate_income      营业总收入（元，当季累计值）
+    total_operate_income_yoy  营业总收入同比（%，来自 TOTAL_OPERATE_INCOME_TQ）
+    parent_netprofit          归母净利润（元，当季累计值）
+    parent_netprofit_yoy      归母净利润同比（%，来自 PARENT_NETPROFIT_TQ）
+    notice_date               公告日期（实际披露日）
+
 依赖：
     pip install duckdb
 """

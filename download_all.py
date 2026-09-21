@@ -32,7 +32,8 @@ import argparse
 import datetime
 import sys
 
-from AutoTS.download import baidu, gzfx, holiday, nbjb, rzrq, tradingview, tradingview_study
+from AutoTS.download import baidu, gzfx, holiday, nbjb, rzrq
+from AutoTS.download.tv import tradingview, tradingview_study
 
 
 def run_source(name, args):
@@ -122,7 +123,7 @@ def main():
     parser.add_argument("--nbjb-db", default=None, help="业绩报告 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--rzrq-db", default=None, help="融资融券 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--tv-db", default=None, help="TradingView K线/指标 DuckDB 路径（默认 download/autots.duckdb）")
-    parser.add_argument("--tv-cookie-file", default=None, help="TradingView Cookie 文件（K线可选；指标必需，默认 download/tv_cookie.txt）")
+    parser.add_argument("--tv-cookie-file", default=None, help="TradingView Cookie 文件（K线可选；指标必需，默认 download/tv/tv_cookie.txt）")
     parser.add_argument("--tv-layout", default="dP9MRLfC", help="TradingView 指标布局编号，默认 dP9MRLfC")
     parser.add_argument("--tv-no-proxy", action="store_true", help="TradingView 不走本机 7897 代理")
     parser.add_argument("--headless", action="store_true", help="百度指数无头模式")
