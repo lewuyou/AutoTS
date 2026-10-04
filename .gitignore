@@ -125,3 +125,11 @@ temp*.py
 
 # Cloudflare Pages deploy staging (assembled in CI)
 _site/
+
+# Download temp files
+download/temp/
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
