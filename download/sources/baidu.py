@@ -7,7 +7,8 @@
     签名不绑定 URL/账号，实测约 5.5 小时有效，缓存 4 小时或服务端返回 10018 时自动重算。
   - 请求：requests.Session 带 Cookie 头直连 index.baidu.com，风控策略：10001 冷却重试最多 3 次
     （1h -> 2h -> 4h 翻倍），第 4 次仍被限则中止；凌晨 00:00~08:00 暂停（指数夜间不更新且易风控）；
-    每连续抓取 30 分钟休息 1 小时；每请求段 3~5 秒随机间隔。
+    多 Cookie 文件轮换（默认 baidu_cookie1~5.txt）：每连续抓取 90 分钟切换下一个账号，
+    摊薄单账号请求密度以降低风控概率；每请求段 3~5 秒随机间隔。
 数据源特有逻辑仅保留：token 生成 + 分段抓取 + ptbk 解码、黑名单/临时名前缀过滤、
 未收录词自动入黑名单、关键词滞后排序与分批、search/feed 独立滞后窗口。
 公共流程（日志/建表/UPSERT/水位/暂存路径/合并/结果）走 download.common。
@@ -54,7 +55,9 @@ try:
 except ImportError:
     MiniRacer = None
 
-DEFAULT_COOKIE_FILE = os.path.join(DOWNLOAD_DIR, "baidu_cookie.txt")
+# 多账号 Cookie 轮换：默认依次使用 baidu_cookie1~5.txt，每连续抓取 90 分钟切下一个，
+# 摊薄单账号请求密度；缺失文件自动跳过，全部缺失则回退交互式输入。
+DEFAULT_COOKIE_FILES = [os.path.join(DOWNLOAD_DIR, "baidu_cookie%d.txt" % i) for i in range(1, 6)]
 DEFAULT_BLACKLIST_FILE = os.path.join(DOWNLOAD_DIR, "baidu_blacklist.txt")
 
 SOURCE_NAME = "baidu"
@@ -93,8 +96,7 @@ USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 TOKEN_TTL_S = 4 * 3600         # token 缓存时长：实测约 5.5 小时有效（起止时间戳不表有效期），留余量
 BLOCK_COOLDOWN_S = 3600        # 触发风控(10001)后首次冷却 1 小时，之后逐次翻倍（2h、4h）
 NIGHT_END_HOUR = 8             # 凌晨 00:00~08:00 暂停抓取
-WORK_PERIOD_S = 5400           # 每连续抓取 90 分钟即休息
-REST_PERIOD_S = 3600           # 休息时长 1 小时（反爬：压低单位时间请求密度）
+WORK_PERIOD_S = 5400           # 每连续抓取 90 分钟即切换下一个 Cookie（多账号轮换，摊薄单账号请求密度）
 
 log = logging.getLogger(SOURCE_NAME)
 
@@ -165,18 +167,26 @@ window.window = window;
 class BaiduApiClient:
     """requests 直连抓取：fetch_json 风控策略、ptbk 解码、分段抓取，产出 {search, feed, errors}。"""
 
-    def __init__(self, cookie_text, token_provider=None, sleep_ms=REQUEST_SLEEP_MS):
+    def __init__(self, cookie_texts, token_provider=None, sleep_ms=REQUEST_SLEEP_MS, cookie_labels=None):
+        if isinstance(cookie_texts, str):
+            cookie_texts = [cookie_texts]
+        self.cookie_texts = [c.strip() for c in cookie_texts]
+        self.cookie_labels = cookie_labels or ["#%d" % (i + 1) for i in range(len(self.cookie_texts))]
+        self._cookie_idx = 0
         self.session = requests.Session()
         self.session.headers.update({
-            "Cookie": cookie_text.strip(),
             "User-Agent": USER_AGENT,
             "Referer": PAGE_URL,
             "Accept": "application/json, text/plain, */*",
         })
+        self._apply_cookie()
         self.tokens = token_provider or TokenProvider()
         self.sleep_ms = sleep_ms
         self.block_count = 0
         self._work_started = time.monotonic()
+
+    def _apply_cookie(self):
+        self.session.headers["Cookie"] = self.cookie_texts[self._cookie_idx]
 
     def _rand_sleep(self):
         time.sleep((self.sleep_ms + random.randint(0, 2000)) / 1000)
@@ -190,12 +200,17 @@ class BaiduApiClient:
             time.sleep(max(wait, 1))
             self._work_started = time.monotonic()   # 夜间停摆不计入工作时长
 
-    def _pause_for_work_rest(self):
+    def _rotate_cookie_if_due(self):
+        if len(self.cookie_texts) <= 1:
+            return
         elapsed = time.monotonic() - self._work_started
         if elapsed >= WORK_PERIOD_S:
-            log.info("已连续抓取 %d 分钟，休息 %d 分钟...", round(elapsed / 60), REST_PERIOD_S // 60)
-            time.sleep(REST_PERIOD_S)
+            self._cookie_idx = (self._cookie_idx + 1) % len(self.cookie_texts)
+            self._apply_cookie()
             self._work_started = time.monotonic()
+            log.info("已连续抓取 %d 分钟，切换 Cookie -> %s（%d/%d）",
+                     round(elapsed / 60), self.cookie_labels[self._cookie_idx],
+                     self._cookie_idx + 1, len(self.cookie_texts))
 
     def fetch_json(self, url):
         r = self.session.get(url, headers={"Cipher-Text": self.tokens.get()}, timeout=60).json()
@@ -203,14 +218,24 @@ class BaiduApiClient:
             log.warning("token 过期(10018)，重新生成")
             r = self.session.get(url, headers={"Cipher-Text": self.tokens.get(force=True)}, timeout=60).json()
         cooldown = BLOCK_COOLDOWN_S
+        tried = 0   # 本轮 10001 已连续轮换的账号数
         while r and r.get("status") == 10001:
-            # 风控限流：最多冷却重试 3 次（1h -> 2h -> 4h 翻倍），第 4 次仍被限则中止脚本
+            # 风控限流：优先切换下一个账号立即重试；全部账号轮完仍被限才冷却（1h -> 2h -> 4h 翻倍）
+            if len(self.cookie_texts) > 1 and tried < len(self.cookie_texts) - 1:
+                tried += 1
+                log.warning("触发风控(10001)，换账号重试（已试 %d/%d 个账号）", tried + 1, len(self.cookie_texts))
+                self._switch_next_cookie(reason="风控(10001)，")
+                r = self.session.get(url, headers={"Cipher-Text": self.tokens.get()}, timeout=60).json()
+                continue
             self.block_count += 1
             if self.block_count >= 4:
-                raise RuntimeError("触发百度风控(10001)第 %d 次（累计已冷却重试 3 次仍被限），已中止脚本，请冷却后重跑（自动断点续抓）" % self.block_count)
-            log.warning("触发风控(10001)第 %d 次，冷却 %d 小时后重试...", self.block_count, cooldown // 3600)
+                raise RuntimeError("触发百度风控(10001)第 %d 次（%d 个账号轮换 + 累计已冷却重试 3 次仍被限），已中止脚本，请冷却后重跑（自动断点续抓）" % (self.block_count, len(self.cookie_texts)))
+            log.warning("全部 %d 个账号均被限(10001)第 %d 次，冷却 %d 小时后重试...",
+                        len(self.cookie_texts), self.block_count, cooldown // 3600)
             time.sleep(cooldown)
             cooldown *= 2
+            tried = 0
+            self._work_started = time.monotonic()   # 冷却停摆不计入工作时长
             r = self.session.get(url, headers={"Cipher-Text": self.tokens.get()}, timeout=60).json()
         return r
 
@@ -234,7 +259,7 @@ class BaiduApiClient:
         isolate_sleep = max(0.3, self.sleep_ms / 2000)
         for s, e in chunks:
             self._pause_if_night()
-            self._pause_for_work_rest()
+            self._rotate_cookie_if_due()
             tag = "%s~%s" % (s, e)
             try:
                 r = self.fetch_json(self._chunk_url(base_url, keywords, s, e))
@@ -308,9 +333,9 @@ class BaiduApiClient:
         return {"search": search, "feed": feed, "errors": errors}
 
 
-def scrape_batches(batch_args, cookie_text, on_batch=None):
+def scrape_batches(batch_args, cookie_texts, on_batch=None, cookie_labels=None):
     """顺序执行所有批次；每批完成回调 on_batch(i, arg, payload)。"""
-    client = BaiduApiClient(cookie_text)
+    client = BaiduApiClient(cookie_texts, cookie_labels=cookie_labels)
     for i, arg in enumerate(batch_args):
         client.sleep_ms = arg.get("sleepMs") or REQUEST_SLEEP_MS
         payload = client.scrape_batch(arg["keywords"], arg.get("searchChunks") or [], arg.get("feedChunks") or [])
@@ -420,7 +445,7 @@ def payload_to_rows(payload):
 merge_stages = storage.make_merge_stages(TABLE_NAME, TABLE_SCHEMA, COLUMNS, DEFAULT_DB_PATH)
 
 
-def run(keywords=None, start=None, end=None, cookie_file=DEFAULT_COOKIE_FILE, db_path=None,
+def run(keywords=None, start=None, end=None, cookie_file=None, db_path=None,
         from_stock_list=False, batch_size=BATCH_SIZE,
         sleep_ms=REQUEST_SLEEP_MS, stage_path=None, exclude_st=True,
         blacklist_file=DEFAULT_BLACKLIST_FILE, exclude_prefix=True, sort_by_lag=True, run_id=""):
@@ -430,7 +455,8 @@ def run(keywords=None, start=None, end=None, cookie_file=DEFAULT_COOKIE_FILE, db
         keywords: 关键词列表，默认 ["金龙鱼"]
         start: 起始日期 YYYY-MM-DD；不传则按库内最大日期增量（无记录即 2011 起全量）
         end: 结束日期 YYYY-MM-DD；不传则按数据滞后规则（search 截至昨日、feed 截至前日）
-        cookie_file: Cookie 文件路径，None 则交互式输入
+        cookie_file: Cookie 文件路径（str 单文件、逗号分隔多文件、或路径列表）；
+            None 则自动使用存在的 baidu_cookie1~5.txt（多账号轮换），全部缺失则交互式输入
         db_path: 主库路径，默认 download/autots.duckdb
         from_stock_list: 从 stock_list 表读取全部股票简称作为关键词（按总市值从大到小排序）
         batch_size: 单次请求对比关键词数上限，默认 1
@@ -504,10 +530,26 @@ def run(keywords=None, start=None, end=None, cookie_file=DEFAULT_COOKIE_FILE, db
         return res.finish()
 
     if cookie_file:
-        with open(cookie_file, encoding="utf-8") as f:
-            cookie_text = f.read()
+        if isinstance(cookie_file, str):
+            cookie_files = [p.strip() for p in cookie_file.split(",") if p.strip()]
+        else:
+            cookie_files = list(cookie_file)
     else:
-        cookie_text = read_cookie_interactive()
+        cookie_files = [p for p in DEFAULT_COOKIE_FILES if os.path.exists(p)]
+        missing = [p for p in DEFAULT_COOKIE_FILES if not os.path.exists(p)]
+        if missing:
+            log_.warning("Cookie 文件缺失，已跳过: %s", "、".join(os.path.basename(p) for p in missing))
+    cookie_texts = []
+    for p in cookie_files:
+        with open(p, encoding="utf-8") as f:
+            cookie_texts.append(f.read())
+    if not cookie_texts:
+        cookie_files = ["交互式输入"]
+        cookie_texts = [read_cookie_interactive()]
+    if len(cookie_texts) > 1:
+        log_.info("加载 %d 个 Cookie 文件（每 %d 分钟轮换一个账号）: %s",
+                  len(cookie_texts), WORK_PERIOD_S // 60,
+                  "、".join(os.path.basename(p) for p in cookie_files))
 
     total = len(batches)
     log_.info("关键词 %d 个，共 %d 批（每批≤%d 词），结束日 search=%s / feed=%s",
@@ -559,7 +601,8 @@ def run(keywords=None, start=None, end=None, cookie_file=DEFAULT_COOKIE_FILE, db
     batch_args = [{"keywords": kws, "searchChunks": sc, "feedChunks": fc, "sleepMs": sleep_ms}
                   for kws, sc, fc in batches]
     try:
-        scrape_batches(batch_args, cookie_text, on_batch=on_batch)
+        scrape_batches(batch_args, cookie_texts, on_batch=on_batch,
+                       cookie_labels=[os.path.basename(p) for p in cookie_files])
     except Exception as e:
         log_.exception("抓取异常: %s", e)
         res.error = str(e)
@@ -602,7 +645,9 @@ def _add_args(parser):
     parser.add_argument("--stage", default=None, help="暂存 DuckDB 路径；auto 自动生成，不设则直入主库")
     parser.add_argument("--start", default=None, help="起始日期 YYYY-MM-DD（不传则按库内最大日期增量，无记录全量）")
     parser.add_argument("--end", default=None, help="结束日期 YYYY-MM-DD（默认今天）")
-    parser.add_argument("--cookie-file", default=DEFAULT_COOKIE_FILE, help=f"从文件读取 Cookie（默认 {DEFAULT_COOKIE_FILE}）")
+    parser.add_argument("--cookie-file", default=None,
+                        help="Cookie 文件路径，逗号分隔可传多个；不传则自动使用存在的 "
+                             "download/baidu_cookie1~5.txt（多账号轮换），全部缺失则交互式输入")
     parser.add_argument("--headless", action="store_true",
                         help="（已废弃，纯 API 版无需浏览器，仅为兼容旧命令保留，传了也忽略）")
 

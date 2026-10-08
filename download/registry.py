@@ -41,7 +41,7 @@ def _baidu_add_args(parser):
     parser.add_argument("--baidu-keywords", default=None,
                         help="逗号分隔关键词；不传则从 stock_list 读全部股票简称")
     parser.add_argument("--baidu-cookie-file", default=None,
-                        help=f"百度 Cookie 文件（默认 {mod.DEFAULT_COOKIE_FILE}）")
+                        help="百度 Cookie 文件，逗号分隔可传多个（默认自动用存在的 download/baidu_cookie1~5.txt 轮换）")
     parser.add_argument("--headless", action="store_true",
                         help="（已废弃，百度指数已改纯 API 无需浏览器，仅为兼容旧 cron 保留，传了也忽略）")
     parser.add_argument("--baidu-batch-size", type=int, default=None,
@@ -59,7 +59,7 @@ def _baidu_daily_kwargs(args):
     return {
         "keywords": args.baidu_keywords,
         "from_stock_list": not args.baidu_keywords,
-        "cookie_file": args.baidu_cookie_file or mod.DEFAULT_COOKIE_FILE,
+        "cookie_file": args.baidu_cookie_file,
         "batch_size": args.baidu_batch_size or mod.BATCH_SIZE,
         "sleep_ms": args.baidu_sleep_ms or mod.REQUEST_SLEEP_MS,
         "exclude_st": not args.baidu_include_st,
