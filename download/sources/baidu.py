@@ -80,7 +80,7 @@ FEED_START = "2017-07-03"     # 资讯指数最早日期
 SEARCH_START_D = datetime.date.fromisoformat(SEARCH_START)
 FEED_START_D = datetime.date.fromisoformat(FEED_START)
 CHUNK_DAYS = 360              # 日频单次请求最大天数（实测 365 内返回日频），留余量
-BATCH_SIZE = 1                # 单次请求最多对比关键词数
+BATCH_SIZE = 5                # 单次请求最多对比关键词数
 REQUEST_SLEEP_MS = 5000       # 每个请求段间隔毫秒基数（实际为 3000~5000 随机，反爬安全间隔）
 
 ACS_JS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baidu_acs_2057.js")
