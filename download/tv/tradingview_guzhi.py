@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """TradingView 估值指标（PE/PB/PS/PCF）抓取入库模块。
 
+cd /Users/lwy/Code/qoder/AutoTS && .venv/bin/python -m download.tv.tradingview_guzhi --stage ./download/temp/guzhi_stage.duckdb --log auto --refresh-before 2016-01-01
+
 从 TradingView 图表布局 acmWP4Eo 抓 4 个基本面指标（市盈率/市净率/市销率/市现率），
 入库到 guzhi 表。复用 tradingview_study.py 的 WebSocket 抓取逻辑；symbol 存 6 位 A 股代码，
 从 stock_list 表读取全部在市股票（含 ST），按 exchange 映射为 TradingView symbol：
@@ -12,22 +14,23 @@
 前置（一次性）：
     1. cookie：download/tv/tv_cookie.txt（登录 cookie，含 sessionid）
     2. 加密 text：download/tv/tv_study_texts.json 里必须有本布局 4 个指标的 text，
-       缺失时先跑  python -m download.tv.fetch_tv_study_texts --layout acmWP4Eo --headless
+       缺失时先跑  python download/tv/fetch_tv_study_texts.py --layout acmWP4Eo --headless
 
 用法（独立运行）：
-    python -m download.tv.tradingview_guzhi                        # 增量抓取：只抓 stock_list 中尚未入库的（含 ST），直入主库
-    python -m download.tv.tradingview_guzhi --full                 # 全量重抓所有股票（覆盖已有数据）
-    python -m download.tv.tradingview_guzhi --stage auto --log auto# 暂存模式 + 写日志，事后 --merge 合并
-    python -m download.tv.tradingview_guzhi --codes 600000,000001  # 指定代码（沪+深）
-    python -m download.tv.tradingview_guzhi --merge "download/temp/guzhi_stage_*.duckdb"
-    python -m download.tv.tradingview_guzhi --no-proxy
-    python -m download.tv.tradingview_guzhi --no-refresh-texts  # 跳过抓取前重新提取 text（用缓存）
+    python download/tv/tradingview_guzhi.py                        # 增量抓取：只抓 stock_list 中尚未入库的（含 ST），直入主库
+    python download/tv/tradingview_guzhi.py --full                 # 全量重抓所有股票（覆盖已有数据）
+    python download/tv/tradingview_guzhi.py --refresh-before 2016-01-01  # 只重抓 2016-01-01 之前无数据的股票（覆盖入库）
+    python download/tv/tradingview_guzhi.py --stage auto --log auto# 暂存模式 + 写日志，事后 --merge 合并
+    python download/tv/tradingview_guzhi.py --codes 600000,000001  # 指定代码（沪+深）
+    python download/tv/tradingview_guzhi.py --merge "download/temp/guzhi_stage_*.duckdb"
+    python download/tv/tradingview_guzhi.py --no-proxy
+    python download/tv/tradingview_guzhi.py --no-refresh-texts  # 跳过抓取前重新提取 text（用缓存）
 
 暂存模式（--stage）：
     数据不入主库，改写入暂存 DuckDB（表结构与主库 guzhi 完全相同），
     供长时间抓取期间不占用主库锁、不影响其他抓取任务，事后用 --merge 统一合并：
-        python -m download.tv.tradingview_guzhi --stage auto --log auto
-        python -m download.tv.tradingview_guzhi --merge "download/temp/guzhi_stage_*.duckdb"
+        python download/tv/tradingview_guzhi.py --stage auto --log auto
+        python download/tv/tradingview_guzhi.py --merge "download/temp/guzhi_stage_*.duckdb"
     合并成功的暂存文件自动重命名加 .merged 后缀，防止重复合并。
 
 入库表 guzhi 字段含义：
@@ -45,8 +48,13 @@ import os
 import sys
 import time
 
-from . import fetch_tv_study_texts
-from . import tradingview_study as ts
+try:
+    from . import fetch_tv_study_texts
+    from . import tradingview_study as ts
+except ImportError:  # 独立运行：python download/tv/tradingview_guzhi.py
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from download.tv import fetch_tv_study_texts
+    from download.tv import tradingview_study as ts
 
 TABLE_NAME = "guzhi"
 DEFAULT_LAYOUT = "acmWP4Eo"
@@ -137,8 +145,12 @@ def load_stock_list(db_path=DEFAULT_DB_PATH):
     return [(str(s), str(e or "")) for s, e in rows]
 
 
-def load_ingested_symbols(db_path):
-    """查某 DuckDB 库 guzhi 表已入库的 symbol 集合；表不存在或库不存在返回空集。"""
+def load_ingested_symbols(db_path, min_date=None):
+    """查某 DuckDB 库 guzhi 表已入库的 symbol 集合；表不存在或库不存在返回空集。
+
+    min_date（YYYY-MM-DD）指定时，只返回「最早数据日期 <= min_date」的 symbol，
+    即在该日期之前已有数据的股票；早于该日期无数据的股票会被排除（需要重抓）。
+    """
     ts._require()
     if not os.path.exists(db_path):
         return set()
@@ -148,6 +160,11 @@ def load_ingested_symbols(db_path):
         tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
         if TABLE_NAME not in tables:
             return set()
+        if min_date:
+            return {r[0] for r in con.execute(
+                f"SELECT symbol FROM {TABLE_NAME} GROUP BY symbol HAVING min(date) <= ?",
+                [min_date],
+            ).fetchall()}
         return {r[0] for r in con.execute(f"SELECT DISTINCT symbol FROM {TABLE_NAME}").fetchall()}
     finally:
         con.close()
@@ -279,7 +296,7 @@ def merge_stages(pattern, db_path=DEFAULT_DB_PATH):
 def run(codes=None, layout_id=DEFAULT_LAYOUT, start=None, end=None,
         cookie_file=None, texts_file=None, db_path=None, stage_path=None,
         use_proxy=True, delay=DEFAULT_DELAY, log_path=None, full=False,
-        refresh_texts=True):
+        refresh_before=None, refresh_texts=True):
     """供外部调用的入口。
 
     参数：
@@ -297,6 +314,9 @@ def run(codes=None, layout_id=DEFAULT_LAYOUT, start=None, end=None,
                   设置后 stdout/stderr 同步写日志（供 tail 看进度）
         full: True 时全量重抓所有股票（覆盖已有数据）；默认 False 增量抓取，
               只抓目标库中尚未入库的股票（暂存模式还叠加暂存库断点续抓）
+        refresh_before: 日期 YYYY-MM-DD；设置后只跳过「该日期之前已有数据」的股票，
+              早于该日期无数据（含完全未入库）的股票一律重抓覆盖；优先级高于默认增量，
+              与 full 互斥（full 优先）
         refresh_texts: True 时抓取前先跑 fetch_tv_study_texts 重新提取布局加密 text；
                        False 直接用 texts_file 里的缓存
     返回：
@@ -347,7 +367,7 @@ def run(codes=None, layout_id=DEFAULT_LAYOUT, start=None, end=None,
     if not id_to_indicator:
         raise RuntimeError(
             "布局里没有 PE/PB/PS/PCF 指标，或 tv_study_texts.json 缺它们的加密 text。"
-            "请先跑: python -m download.tv.fetch_tv_study_texts --layout %s --headless" % layout_id
+            "请先跑: python download/tv/fetch_tv_study_texts.py --layout %s --headless" % layout_id
         )
     if missing_inds:
         print(f"[估值TV] 警告：缺指标 {missing_inds} 的加密 text，本次只抓 {got_inds}", file=sys.stderr)
@@ -369,10 +389,19 @@ def run(codes=None, layout_id=DEFAULT_LAYOUT, start=None, end=None,
     total_rows = 0
     skipped = 0
 
-    # 增量抓取：默认跳过已入库股票，只抓没入库的；--full 全量重抓
+    # 增量抓取：默认跳过已入库股票，只抓没入库的；--full 全量重抓；
+    # --refresh-before 只跳过「该日期之前已有数据」的股票，其余重抓覆盖
     done_syms = set()
     if not full:
-        if stage_path:
+        if refresh_before:
+            if stage_path:
+                done_syms = load_ingested_symbols(ingest_db, min_date=refresh_before)
+                if os.path.exists(db_path):
+                    done_syms |= load_ingested_symbols(db_path, min_date=refresh_before)
+            else:
+                done_syms = load_ingested_symbols(db_path, min_date=refresh_before)
+            print(f"[估值TV] {refresh_before} 之前已有数据 {len(done_syms)} 只，跳过；其余重抓覆盖")
+        elif stage_path:
             # 暂存模式：跳过暂存库已有（断点续抓）+ 主库已有（合并过的）
             done_syms = load_ingested_symbols(ingest_db)
             if os.path.exists(db_path):
@@ -474,6 +503,8 @@ def main():
     parser.add_argument("--no-proxy", action="store_true", help="不走本机 7897 代理")
     parser.add_argument("--full", action="store_true",
                         help="全量重抓所有股票（覆盖已有数据）；默认增量，只抓未入库的股票")
+    parser.add_argument("--refresh-before", default=None, metavar="YYYY-MM-DD",
+                        help="只重抓该日期之前无数据的股票（覆盖入库）；该日期前已有数据的跳过。与 --full 互斥（--full 优先）")
     parser.add_argument("--no-refresh-texts", action="store_true",
                         help="抓取前不重新提取布局加密 text，直接用 texts-file 里的缓存")
     args = parser.parse_args()
@@ -495,6 +526,7 @@ def main():
         delay=args.delay,
         log_path=args.log,
         full=args.full,
+        refresh_before=args.refresh_before,
         refresh_texts=not args.no_refresh_texts,
     )
 

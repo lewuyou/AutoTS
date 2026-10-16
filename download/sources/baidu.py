@@ -5,10 +5,10 @@
   - token：百度 Paris/ACS SDK（同目录 baidu_acs_2057.js，每次运行自动从百度 CDN 拉最新覆盖，
     下载失败回退本地缓存）只依赖 window/document.cookie/location/navigator 与时间，无环境指纹，故用 py_mini_racer（内嵌 V8）本地执行 $BSB_2057.gs() 直接出签名。
     签名不绑定 URL/账号，实测约 5.5 小时有效，缓存 4 小时或服务端返回 10018 时自动重算。
-  - 请求：requests.Session 带 Cookie 头直连 index.baidu.com，风控策略：10001 冷却重试最多 3 次
-    （1h -> 2h -> 4h 翻倍），第 4 次仍被限则中止；凌晨 00:00~08:00 暂停（指数夜间不更新且易风控）；
-    多 Cookie 文件轮换（默认 baidu_cookie1~5.txt）：每连续抓取 90 分钟切换下一个账号，
-    摊薄单账号请求密度以降低风控概率；每请求段 3~5 秒随机间隔。
+  - 请求：requests.Session 带 Cookie 头直连 index.baidu.com，风控策略：多 Cookie 文件轮换
+    （默认 baidu_cookie1~5.txt）：每连续抓取 90 分钟切换下一个账号，触发风控(10001)立即换下一个
+    账号重试，全部账号轮完仍被限才冷却（1h -> 2h -> 4h 翻倍）重试最多 3 次，第 4 次仍被限则中止；
+    凌晨 00:00~08:00 暂停（指数夜间不更新且易风控）；每请求段 3~5 秒随机间隔。
 数据源特有逻辑仅保留：token 生成 + 分段抓取 + ptbk 解码、黑名单/临时名前缀过滤、
 未收录词自动入黑名单、关键词滞后排序与分批、search/feed 独立滞后窗口。
 公共流程（日志/建表/UPSERT/水位/暂存路径/合并/结果）走 download.common。
@@ -96,7 +96,8 @@ USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 TOKEN_TTL_S = 4 * 3600         # token 缓存时长：实测约 5.5 小时有效（起止时间戳不表有效期），留余量
 BLOCK_COOLDOWN_S = 3600        # 触发风控(10001)后首次冷却 1 小时，之后逐次翻倍（2h、4h）
 NIGHT_END_HOUR = 8             # 凌晨 00:00~08:00 暂停抓取
-WORK_PERIOD_S = 5400           # 每连续抓取 90 分钟即切换下一个 Cookie（多账号轮换，摊薄单账号请求密度）
+WORK_PERIOD_S = 3300           # 每连续抓取 55 分钟即切换下一个 Cookie（多账号轮换，摊薄单账号请求密度）
+UNINDEXED_STATUS = 10002       # 百度指数「未收录」关键词的明确返回码（实测：未收录返回 10002 bad request，已收录返回 0）
 
 log = logging.getLogger(SOURCE_NAME)
 
@@ -188,6 +189,13 @@ class BaiduApiClient:
     def _apply_cookie(self):
         self.session.headers["Cookie"] = self.cookie_texts[self._cookie_idx]
 
+    def _switch_next_cookie(self, reason=""):
+        self._cookie_idx = (self._cookie_idx + 1) % len(self.cookie_texts)
+        self._apply_cookie()
+        self._work_started = time.monotonic()
+        log.info("%s切换 Cookie -> %s（%d/%d）", reason, self.cookie_labels[self._cookie_idx],
+                 self._cookie_idx + 1, len(self.cookie_texts))
+
     def _rand_sleep(self):
         time.sleep((self.sleep_ms + random.randint(0, 2000)) / 1000)
 
@@ -205,12 +213,7 @@ class BaiduApiClient:
             return
         elapsed = time.monotonic() - self._work_started
         if elapsed >= WORK_PERIOD_S:
-            self._cookie_idx = (self._cookie_idx + 1) % len(self.cookie_texts)
-            self._apply_cookie()
-            self._work_started = time.monotonic()
-            log.info("已连续抓取 %d 分钟，切换 Cookie -> %s（%d/%d）",
-                     round(elapsed / 60), self.cookie_labels[self._cookie_idx],
-                     self._cookie_idx + 1, len(self.cookie_texts))
+            self._switch_next_cookie(reason="已连续抓取 %d 分钟，" % round(elapsed / 60))
 
     def fetch_json(self, url):
         r = self.session.get(url, headers={"Cipher-Text": self.tokens.get()}, timeout=60).json()
@@ -256,17 +259,21 @@ class BaiduApiClient:
     def run_chunks(self, kind, base_url, keywords, chunks, extract, errors):
         out = {}
         bad_words = set()
+        live_kws = list(keywords)
         isolate_sleep = max(0.3, self.sleep_ms / 2000)
         for s, e in chunks:
+            # 剩余词已全部确认未收录，后续时间段无数据可查，直接跳出
+            if not live_kws:
+                break
             self._pause_if_night()
             self._rotate_cookie_if_due()
             tag = "%s~%s" % (s, e)
             try:
-                r = self.fetch_json(self._chunk_url(base_url, keywords, s, e))
+                r = self.fetch_json(self._chunk_url(base_url, live_kws, s, e))
             except Exception as err:
                 if "已中止" in str(err):
                     raise
-                errors.append({"kind": kind, "keywords": keywords, "chunk": tag, "message": str(err)})
+                errors.append({"kind": kind, "keywords": live_kws, "chunk": tag, "message": str(err)})
                 self._rand_sleep()
                 continue
             if r.get("status") == 0:
@@ -275,18 +282,16 @@ class BaiduApiClient:
                 except Exception as err:
                     if "已中止" in str(err):
                         raise
-                    errors.append({"kind": kind, "keywords": keywords, "chunk": tag, "message": str(err)})
-            elif len(keywords) > 1:
-                # 多词整批失败时逐词隔离重试，定位未收录词；未收录词后续时间段直接跳过
-                for kw in keywords:
-                    if kw in bad_words:
-                        continue
+                    errors.append({"kind": kind, "keywords": live_kws, "chunk": tag, "message": str(err)})
+            elif len(live_kws) > 1:
+                # 多词整批失败时逐词隔离重试，定位未收录词
+                for kw in live_kws:
                     try:
                         r1 = self.fetch_json(self._chunk_url(base_url, [kw], s, e))
                         if r1.get("status") != 0:
                             errors.append({"kind": kind, "keywords": [kw], "chunk": tag,
                                            "status": r1.get("status"), "message": r1.get("message", "")})
-                            if r1.get("status") != 10001:
+                            if r1.get("status") == UNINDEXED_STATUS:
                                 bad_words.add(kw)
                         else:
                             try:
@@ -300,11 +305,17 @@ class BaiduApiClient:
                             raise
                         errors.append({"kind": kind, "keywords": [kw], "chunk": tag, "message": str(err)})
                     time.sleep(isolate_sleep)
+                # 剔除已确认未收录的词，后续时间段只查剩余已收录词，避免整批反复 10002
+                live_kws = [k for k in live_kws if k not in bad_words]
             else:
-                errors.append({"kind": kind, "keywords": keywords, "chunk": tag,
+                # 单词非 0：10002 即未收录，剔除；其余（风控/token/异常）记错误下轮重试
+                if r.get("status") == UNINDEXED_STATUS:
+                    bad_words.add(live_kws[0])
+                errors.append({"kind": kind, "keywords": live_kws, "chunk": tag,
                                "status": r.get("status"), "message": r.get("message", "")})
+                live_kws = [k for k in live_kws if k not in bad_words]
             self._rand_sleep()
-        return out
+        return out, bad_words
 
     def scrape_batch(self, keywords, search_chunks, feed_chunks):
         """执行一个批次，返回 {search, feed, errors}。"""
@@ -328,8 +339,13 @@ class BaiduApiClient:
                     "values": decrypt(ptbk, it["data"]).split(","),
                 })
 
-        search = self.run_chunks("search", SEARCH_URL, keywords, search_chunks, extract_search, errors)
-        feed = self.run_chunks("feed", FEED_URL, keywords, feed_chunks, extract_feed, errors)
+        search, search_bad = self.run_chunks("search", SEARCH_URL, keywords, search_chunks, extract_search, errors)
+        # 未收录是整体性的：search 确认未收录的词，feed 通道也必然无数据，直接剔除不查
+        feed_kws = [k for k in keywords if k not in search_bad]
+        if feed_kws:
+            feed, _ = self.run_chunks("feed", FEED_URL, feed_kws, feed_chunks, extract_feed, errors)
+        else:
+            feed = {}
         return {"search": search, "feed": feed, "errors": errors}
 
 
@@ -577,12 +593,12 @@ def run(keywords=None, start=None, end=None, cookie_file=None, db_path=None,
             if kw in returned or kw in unindexed:
                 continue
             kw_errs = errors_by_kw.get(kw, [])
-            # 10001=风控、10018=token 过期、status=None=抓取异常：临时失败，下轮重试，不判未收录
-            if any(status is None or status in (10001, 10018) for status, _ in kw_errs):
+            # 仅 status=10002 判未收录；10001=风控、10018=token 过期、None=抓取异常等一律视为临时失败下轮重试
+            if any(status == UNINDEXED_STATUS for status, _ in kw_errs):
+                batch_unindexed.append(kw)
+            else:
                 for _, msg in kw_errs:
                     failed.setdefault(kw, set()).add(msg)
-            else:
-                batch_unindexed.append(kw)
         for kw, src, d, v in rows:
             key = f"{kw}_{src}"
             s = stats.setdefault(key, {"n": 0, "sum": 0.0, "first": d, "last": d})

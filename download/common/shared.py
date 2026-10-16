@@ -135,6 +135,9 @@ def last_completed_trading_day(db_path, end_date, now=None):
 
     取 <= end_date 的交易日中最大的；若该日就是今天且尚未收盘，则回退到再前一个交易日
     （盘中当日数据不齐，不视为已齐全）。日历表缺失返回 None，调用方回退到逐只请求。
+
+    交易日 = is_holiday=FALSE 且 is_workday_adjustment=FALSE：调休上班日（如国庆后补班的
+    周六）在日历里 is_holiday=FALSE，但股市周末不交易，必须排除，否则"已齐全交易日"会落在周末。
     """
     con = storage.connect(db_path, read_only=True)
     try:
@@ -142,7 +145,8 @@ def last_completed_trading_day(db_path, end_date, now=None):
             return None
         rows = con.execute(
             "SELECT date FROM holiday_calendar "
-            "WHERE is_holiday = FALSE AND date <= ? ORDER BY date DESC LIMIT 2",
+            "WHERE is_holiday = FALSE AND is_workday_adjustment = FALSE "
+            "AND date <= ? ORDER BY date DESC LIMIT 2",
             [end_date],
         ).fetchall()
     finally:

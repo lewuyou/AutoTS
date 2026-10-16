@@ -1,0 +1,643 @@
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 533, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 514, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 347, in run
+    fetch_tv_study_texts.fetch_texts(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/fetch_tv_study_texts.py", line 126, in fetch_texts
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 9903, in goto
+    self._sync(
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 113, in _sync
+    self._dispatcher_fiber.switch()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 55, in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 1961, in _run_once
+    event_list = self._selector.select(timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/selectors.py", line 566, in select
+    kev_list = self._selector.control(None, max_ev, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 4 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 15 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 布局 acmWP4Eo，提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb', 'pcf', 'pe', 'ps']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] 6/5224 抓取 600941 (SSE:600941) ...
+[估值TV] 600941 失败: 无数据
+[估值TV] 8/5224 抓取 600938 (SSE:600938) ...
+[估值TV] 600938 失败: 无数据
+[估值TV] 10/5224 抓取 300750 (SZSE:300750) ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 533, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 514, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 428, in run
+    data, _missing = ts.fetch_symbol_studies(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_study.py", line 295, in fetch_symbol_studies
+    chunk = ws.recv()
+            ^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 429, in recv
+    opcode, data = self.recv_data()
+                   ^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 457, in recv_data
+    opcode, frame = self.recv_data_frame(control_frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 478, in recv_data_frame
+    frame = self.recv_frame()
+            ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 515, in recv_frame
+    return self.frame_buffer.recv_frame()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 377, in recv_frame
+    self.recv_header()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 331, in recv_header
+    header = self.recv_strict(2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 420, in recv_strict
+    bytes_ = self.recv(min(16384, shortage))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 645, in _recv
+    return recv(self.sock, bufsize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 127, in recv
+    bytes_ = _recv()
+             ^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 99, in _recv
+    return sock.recv(bufsize)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1244, in recv
+    return self.read(buflen)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1117, in read
+    return self._sslobj.read(len)
+           ^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 4 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 15 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 布局 acmWP4Eo，提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb', 'pcf', 'pe', 'ps']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 533, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 514, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 457, in run
+    time.sleep(delay)
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 4 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 15 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 布局 acmWP4Eo，提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb', 'pcf', 'pe', 'ps']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] 6/5224 抓取 600941 (SSE:600941) ...
+[估值TV] 600941 失败: 无数据
+[估值TV] 8/5224 抓取 600938 (SSE:600938) ...
+[估值TV] 600938 失败: 无数据
+[估值TV] 10/5224 抓取 300750 (SZSE:300750) ...
+[估值TV] 300750 失败: 无数据
+[估值TV] 11/5224 抓取 601138 (SSE:601138) ...
+[估值TV] 601138 失败: 无数据
+[估值TV] 16/5224 抓取 688981 (SSE:688981) ...
+[估值TV] 688981 失败: 无数据
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 533, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 514, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 457, in run
+    time.sleep(delay)
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 4 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 布局 acmWP4Eo，提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb', 'pcf', 'pe', 'ps']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] 6/5224 抓取 600941 (SSE:600941) ...
+[估值TV] 600941 失败: 无数据
+[估值TV] 8/5224 抓取 600938 (SSE:600938) ...
+[估值TV] 600938 失败: 无数据
+[估值TV] 10/5224 抓取 300750 (SZSE:300750) ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 533, in <module>
+    
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 514, in main
+    return
+^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 428, in run
+    for attempt in range(1, MAX_RETRY + 1):
+                             ^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_study.py", line 295, in fetch_symbol_studies
+    chunk = ws.recv()
+            ^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 429, in recv
+    opcode, data = self.recv_data()
+                   ^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 457, in recv_data
+    opcode, frame = self.recv_data_frame(control_frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 478, in recv_data_frame
+    frame = self.recv_frame()
+            ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 515, in recv_frame
+    return self.frame_buffer.recv_frame()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 377, in recv_frame
+    self.recv_header()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 331, in recv_header
+    header = self.recv_strict(2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 420, in recv_strict
+    bytes_ = self.recv(min(16384, shortage))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 645, in _recv
+    return recv(self.sock, bufsize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 127, in recv
+    bytes_ = _recv()
+             ^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 99, in _recv
+    return sock.recv(bufsize)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1244, in recv
+    return self.read(buflen)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1117, in read
+    return self._sslobj.read(len)
+           ^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 9ugDKt2t 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/9ugDKt2t/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 2 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+[估值TV] 布局 9ugDKt2t，提取 auth_token + 指标配置 ...
+[估值TV] 警告：缺指标 ['pcf', 'ps'] 的加密 text，本次只抓 ['pb', 'pe']
+[估值TV] 识别到指标: ['pb', 'pe']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] 6/5224 抓取 600941 (SSE:600941) ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 430, in run
+    data, _missing = ts.fetch_symbol_studies(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_study.py", line 295, in fetch_symbol_studies
+    chunk = ws.recv()
+            ^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 429, in recv
+    opcode, data = self.recv_data()
+                   ^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 457, in recv_data
+    opcode, frame = self.recv_data_frame(control_frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 478, in recv_data_frame
+    frame = self.recv_frame()
+            ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 515, in recv_frame
+    return self.frame_buffer.recv_frame()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 377, in recv_frame
+    self.recv_header()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 331, in recv_header
+    header = self.recv_strict(2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 420, in recv_strict
+    bytes_ = self.recv(min(16384, shortage))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 645, in _recv
+    return recv(self.sock, bufsize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 127, in recv
+    bytes_ = _recv()
+             ^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 99, in _recv
+    return sock.recv(bufsize)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1244, in recv
+    return self.read(buflen)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1117, in read
+    return self._sslobj.read(len)
+           ^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 9ugDKt2t 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/9ugDKt2t/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 2 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+[估值TV] 布局 9ugDKt2t，提取 auth_token + 指标配置 ...
+[估值TV] 警告：缺指标 ['pcf', 'ps'] 的加密 text，本次只抓 ['pb', 'pe']
+[估值TV] 识别到指标: ['pb', 'pe']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 430, in run
+    data, _missing = ts.fetch_symbol_studies(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_study.py", line 295, in fetch_symbol_studies
+    chunk = ws.recv()
+            ^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 429, in recv
+    opcode, data = self.recv_data()
+                   ^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 457, in recv_data
+    opcode, frame = self.recv_data_frame(control_frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 478, in recv_data_frame
+    frame = self.recv_frame()
+            ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 515, in recv_frame
+    return self.frame_buffer.recv_frame()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 377, in recv_frame
+    self.recv_header()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 331, in recv_header
+    header = self.recv_strict(2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 420, in recv_strict
+    bytes_ = self.recv(min(16384, shortage))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 645, in _recv
+    return recv(self.sock, bufsize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 127, in recv
+    bytes_ = _recv()
+             ^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 99, in _recv
+    return sock.recv(bufsize)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1244, in recv
+    return self.read(buflen)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1117, in read
+    return self._sslobj.read(len)
+           ^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 4 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 布局 acmWP4Eo，提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb', 'pcf', 'pe', 'ps']
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+[估值TV] 2016-01-01 之前已有数据 2579 只，跳过；其余重抓覆盖
+[估值TV] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] 6/5224 抓取 600941 (SSE:600941) ...
+[估值TV] 600941 失败: 无数据
+[估值TV] 8/5224 抓取 600938 (SSE:600938) ...
+[估值TV] 600938 失败: 无数据
+[估值TV] 10/5224 抓取 300750 (SZSE:300750) ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 430, in run
+    data, _missing = ts.fetch_symbol_studies(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_study.py", line 295, in fetch_symbol_studies
+    chunk = ws.recv()
+            ^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 429, in recv
+    opcode, data = self.recv_data()
+                   ^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 457, in recv_data
+    opcode, frame = self.recv_data_frame(control_frame)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 478, in recv_data_frame
+    frame = self.recv_frame()
+            ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 515, in recv_frame
+    return self.frame_buffer.recv_frame()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 377, in recv_frame
+    self.recv_header()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 331, in recv_header
+    header = self.recv_strict(2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_abnf.py", line 420, in recv_strict
+    bytes_ = self.recv(min(16384, shortage))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_core.py", line 645, in _recv
+    return recv(self.sock, bufsize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 127, in recv
+    bytes_ = _recv()
+             ^^^^^^^
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/websocket/_socket.py", line 99, in _recv
+    return sock.recv(bufsize)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1244, in recv
+    return self.read(buflen)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ssl.py", line 1117, in read
+    return self._sslobj.read(len)
+           ^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 349, in run
+    fetch_tv_study_texts.fetch_texts(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/fetch_tv_study_texts.py", line 133, in fetch_texts
+    raise RuntimeError("没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。")
+RuntimeError: 没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 349, in run
+    fetch_tv_study_texts.fetch_texts(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/fetch_tv_study_texts.py", line 129, in fetch_texts
+    page.wait_for_timeout(wait_seconds * 1000)
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 12744, in wait_for_timeout
+    self._sync(
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 113, in _sync
+    self._dispatcher_fiber.switch()
+  File "/Users/lwy/Code/qoder/AutoTS/.venv/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 55, in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 1961, in _run_once
+    event_list = self._selector.select(timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lwy/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/selectors.py", line 566, in select
+    kev_list = self._selector.control(None, max_ev, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 349, in run
+    fetch_tv_study_texts.fetch_texts(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/fetch_tv_study_texts.py", line 133, in fetch_texts
+    raise RuntimeError("没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。")
+RuntimeError: 没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 rcgf32zO（pb）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/rcgf32zO/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+[估值TV] 重新提取布局 9ugDKt2t（pe）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/9ugDKt2t/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+[估值TV] 重新提取布局 jey31D5f（ps）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/jey31D5f/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+[估值TV] 重新提取布局 ZyaQTGbn（pcf）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/ZyaQTGbn/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+
+[估值TV] ===== 指标 pb（布局 rcgf32zO）=====
+[估值TV] 提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb']
+[估值TV] pb：2016-01-01 之前已有数据 2578 只，跳过；其余重抓覆盖
+[估值TV] [pb] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+[估值TV] [pb] 6/5224 抓取 600941 (SSE:600941) ...
+[估值TV] 600941 失败: 无数据
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 582, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 563, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 489, in run
+    time.sleep(delay)
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 acmWP4Eo 的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/acmWP4Eo/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 535, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 516, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi.py", line 349, in run
+    fetch_tv_study_texts.fetch_texts(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/fetch_tv_study_texts.py", line 133, in fetch_texts
+    raise RuntimeError("没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。")
+RuntimeError: 没抓到任何 create_study 的 text。可能是：页面没加载完（加大 --wait）、cookie 失效、或布局里没指标。
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 rcgf32zO（pb）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/rcgf32zO/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+[估值TV] 重新提取布局 9ugDKt2t（pe）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/9ugDKt2t/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+[估值TV] 重新提取布局 jey31D5f（ps）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/jey31D5f/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+[估值TV] 重新提取布局 ZyaQTGbn（pcf）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/ZyaQTGbn/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+
+[估值TV] ===== 指标 pb（布局 rcgf32zO）=====
+[估值TV] 提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb']
+[估值TV] pb：2016-01-01 之前已有数据 2578 只，跳过；其余重抓覆盖
+[估值TV] [pb] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 582, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 563, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 489, in run
+    time.sleep(delay)
+KeyboardInterrupt
+[估值TV] 暂存模式：写入 ./download/temp/guzhi_stage.duckdb，事后用 --merge 合并入主库
+[估值TV] 重新提取布局 rcgf32zO（pb）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/rcgf32zO/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  mUjoci: Internal$STD;Fund_price_book@tv-scripting-101[v.78  text_len=2110
+[估值TV] 重新提取布局 9ugDKt2t（pe）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/9ugDKt2t/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  OLEei4: Internal$STD;Fund_price_earnings@tv-scripting-101[  text_len=2122
+[估值TV] 重新提取布局 jey31D5f（ps）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/jey31D5f/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  abFY1E: Internal$STD;Fund_price_sales@tv-scripting-101[v.7  text_len=2110
+[估值TV] 重新提取布局 ZyaQTGbn（pcf）的加密 text ...
+[抓text] 打开布局 https://cn.tradingview.com/chart/ZyaQTGbn/ ...
+[抓text] 等待 20s 让所有指标加载 ...
+[抓text] 抓到 1 个指标的加密 text
+[抓text] 已写入 /Users/lwy/Code/qoder/AutoTS/download/tv/tv_study_texts.json（共 4 个指标）
+  8YrjWx: Internal$STD;Fund_price_cash_flow@tv-scripting-101  text_len=2122
+[估值TV] 从 stock_list 读取 5224 只（含 ST）
+
+[估值TV] ===== 指标 pb（布局 rcgf32zO）=====
+[估值TV] 提取 auth_token + 指标配置 ...
+[估值TV] 识别到指标: ['pb']
+[估值TV] pb：2016-01-01 之前已有数据 2578 只，跳过；其余重抓覆盖
+[估值TV] [pb] 1/5224 抓取 688825 (SSE:688825) ...
+[估值TV] 688825 失败: 无数据
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 582, in <module>
+    main()
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 563, in main
+    run(
+  File "/Users/lwy/Code/qoder/AutoTS/download/tv/tradingview_guzhi2.py", line 489, in run
+    time.sleep(delay)
+KeyboardInterrupt

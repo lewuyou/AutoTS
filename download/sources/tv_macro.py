@@ -6,7 +6,7 @@
 日志/建表/UPSERT/暂存路径/水位/合并/结果统一走 download.common。
 
 品种清单：以主库 tradingview_macro_symbols 表为准（直接改表即可维护）；
-表不存在或为空时用 download/tv/macro_config.py 的 MACRO_SYMBOLS 初始化；
+表不存在或为空时用 download/tv/macro_config.py 的 MACRO_SYMBOLS 初始化（该文件可选）；
 macro_config.py 更新后执行 --sync-symbols 可重新同步进表（只增/改不删）。
 
 增量规则：按库内每个品种最大日期续抓（含水位日当天，重抓覆盖，UPSERT 幂等）。
@@ -46,7 +46,11 @@ from download.common import shared
 from download.common import storage
 from download.common.paths import DEFAULT_DB_PATH, TEMP_DIR
 from download.tv import tradingview
-from download.tv.macro_config import MACRO_SYMBOLS
+
+try:
+    from download.tv.macro_config import MACRO_SYMBOLS
+except ModuleNotFoundError:
+    MACRO_SYMBOLS = []
 
 SOURCE_NAME = "tv_macro"
 TABLE_NAME = "tradingview_macro"
@@ -107,6 +111,10 @@ def resolve_entries(symbols, table_entries, db_path, log):
     if symbols is None:
         if table_entries:
             return table_entries
+        if not MACRO_SYMBOLS:
+            raise ValueError(
+                "品种配置表为空且缺少 download/tv/macro_config.py："
+                "请用 --symbols 显式指定品种，或恢复 macro_config.py 后先 --sync-symbols")
         log.info("品种配置表为空，用 macro_config 初始化（%d 个品种）", len(MACRO_SYMBOLS))
         sync_symbols(db_path, log)
         return list(MACRO_SYMBOLS)

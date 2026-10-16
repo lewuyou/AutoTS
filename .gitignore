@@ -126,8 +126,18 @@ temp*.py
 # Cloudflare Pages deploy staging (assembled in CI)
 _site/
 
-# Download temp files
+# Download local-only data (temp staging files & cookie credentials)
 download/temp/
+download/**/*cookie*.txt
+
+# uv lock (regenerated locally)
+/uv.lock
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
 
 # DuckDB database files
 *.duckdb

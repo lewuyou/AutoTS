@@ -12,8 +12,10 @@
     python -m download.sources.holiday --stage auto       # 暂存模式
     python -m download.sources.holiday --merge "download/temp/holiday_stage_*.duckdb"
 
-接口（用 curl 带浏览器 UA 即可过 Cloudflare，不需要登录）：
-    https://timor.tech/api/holiday/year/YYYY?type=Y&week=Y 返回全年每一天
+接口（用 curl 带浏览器 UA 且强制 HTTP/1.1 即可过 Cloudflare，不需要登录；
+HTTP/2 会触发 Cloudflare JS 挑战导致连接被重置）：
+    https://timor.tech/api/holiday/year/YYYY?type=Y&week=Y 返回节假日/周末/调休日（约百余天），
+    普通工作日不在返回里，由 payload_to_rows 兜底为工作日
     holiday=true  -> 放假（法定节假日 / 周末 / 调休后放假的周末）
     holiday=false -> 调休上班日（周末上班）
 
@@ -57,7 +59,7 @@ def fetch_year(year, log):
     url = f"{API_BASE}/{year}?type=Y&week=Y"
     try:
         r = subprocess.run(
-            ["curl", "-s", "-f", url,
+            ["curl", "-s", "-f", "--http1.1", url,
              "-H", f"User-Agent: {UA}", "-H", "Accept: application/json"],
             capture_output=True, text=True, timeout=30,
         )

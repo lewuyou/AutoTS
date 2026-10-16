@@ -178,6 +178,12 @@ def run(args):
                  name, res.fetch_status, res.merge_status,
                  res.rows_staged, res.rows_merged, res.failed)
 
+    # 衍生特征：所有数据源合并完成后最后一步（纯库内计算，直接写主库，无暂存）
+    if not args.stage_only and "akshare" in names:
+        from download.sources import stock_features
+        feat_res = stock_features.compute(db_path=prepared["akshare"][2], run_id=run_id)
+        collected.append(feat_res)
+
     return _summarize(collected, run_id, log_path)
 
 

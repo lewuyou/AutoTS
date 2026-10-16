@@ -6,11 +6,12 @@
 UPSERT 可重跑、可断点续抓；抓取期间只写暂存库，全部完成后合并入主库。
 
 用法：
-    python daily.py                       # 全部 daily 数据源（holiday 先行串行，akshare/rzrq/guzhi/tv_macro 并行抓取后串行合并；默认不含 baidu）
+    python daily.py                       # 全部 daily 数据源（holiday 先行串行，akshare/rzrq/guzhi/tv_macro 并行抓取后串行合并；默认不含 baidu；合并后最后一步增量计算衍生特征 stock_features）
     python daily.py --with-baidu          # daily 数据源 + baidu（百度指数限速严格，耗时长）
     python daily.py --sources akshare     # 只跑 akshare
     python daily.py --sources akshare,baidu
-    python daily.py --sources stock_list  # 手动定期刷新股票列表快照（不在默认 daily 任务中）
+    python daily.py --sources stock_list  # 手动定期刷新股票所属二级板块，前提需要https://quote.eastmoney.com/center/gridlist.html#industry_board_2，抓取eastmoney_cookie.txt
+    python daily.py --sources industry_board_cons  # 手动定期刷新股票所属二级板块（不在默认 daily 任务中）
     python daily.py --sources nbjb        # 手动定期刷新业绩报告（季频，不在默认 daily 任务中）
     python daily.py --stage-only          # 只抓取到暂存库，不合并
     python daily.py --db 某路径.duckdb     # 指定主库
@@ -55,6 +56,15 @@ UPSERT 可重跑、可断点续抓；抓取期间只写暂存库，全部完成�
         turnover    换手率（小数）
         amount      成交额（元）
         adjust      复权方式（""=不复权, qfq=前复权, hfq=后复权）
+
+    stock_features（股票价格衍生特征，日频，主键 (symbol, date)；由 akshare_tx 后复权行情
+                    增量计算，作为 daily 任务所有数据入库后的最后一步；新增特征见
+                    download/sources/stock_features.py 的 FEATURES）
+        symbol          股票代码（6 位数字）
+        date            交易日
+        amplitude       振幅（%，= (high - low) / 前收盘价 × 100，后复权口径）
+        log_return_1d   1 日对数收益率（小数，0.01 = +1%；= ln(当日后复权收盘 / 前一日后复权收盘)）
+                        （当日收盘或前收盘 <=0 的后复权负价区间跳过不入库）
 
     baidu（百度指数，日频，主键 (keyword, source, date)）
         keyword  搜索关键词（股票简称，如 "金龙鱼"）
@@ -128,7 +138,8 @@ def main():
     parser.add_argument("--sources", default="daily",
                         help="数据源：daily（默认，=holiday,akshare,rzrq,guzhi,tv_macro）、all，或逗号分隔如 akshare,baidu；"
                              "baidu 限速严格耗时长，默认 daily 不含，需 --with-baidu 或显式 --sources baidu；"
-                             "stock_list 快照表与 nbjb 季报不在默认任务中，需手动 --sources stock_list / nbjb 触发")
+                             "stock_list 快照表、industry_board_cons 二级行业与 nbjb 季报不在默认任务中，"
+                             "需手动 --sources stock_list / industry_board_cons / nbjb 触发")
     parser.add_argument("--with-baidu", action="store_true",
                         help="daily 默认任务带上 baidu（百度指数，5词/批+秒级间隔，耗时长）")
     parser.add_argument("--db", default=None, help="主库 DuckDB 路径（默认 download/autots.duckdb）")

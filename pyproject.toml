@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Automated Time Series Forecasting"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT License"}
 classifiers = [
     "Programming Language :: Python :: 3",

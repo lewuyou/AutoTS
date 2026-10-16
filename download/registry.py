@@ -146,6 +146,26 @@ def _stock_list_daily_kwargs(args):
     }
 
 
+def _industry_board_cons_add_args(parser):
+    from download.sources import industry_board_cons as mod
+    parser.add_argument("--industry-board-cons-attachment", default=None,
+                        help=f"板块树 HTML 路径（默认 {mod.DEFAULT_ATTACHMENT}）")
+    parser.add_argument("--industry-board-cons-delay", type=float, default=mod.DEFAULT_DELAY,
+                        help=f"板块间隔秒数，默认 {mod.DEFAULT_DELAY}")
+    parser.add_argument("--industry-board-cons-reset", action="store_true",
+                        help="清空断点库从头抓取（忽略已抓板块）")
+
+
+def _industry_board_cons_daily_kwargs(args):
+    return {
+        "db_path": args.db,
+        "stage_path": "auto",
+        "attachment": args.industry_board_cons_attachment,
+        "delay": args.industry_board_cons_delay,
+        "reset": args.industry_board_cons_reset,
+    }
+
+
 def _tv_macro_add_args(parser):
     parser.add_argument("--tv-macro-symbols", default=None,
                         help="逗号分隔 TradingView 宏观品种代码（默认读 tradingview_macro_symbols 配置表）")
@@ -174,6 +194,7 @@ SOURCES = {
     "guzhi": {"add_args": _guzhi_add_args, "daily_kwargs": _guzhi_daily_kwargs},
     "holiday": {"add_args": _holiday_add_args, "daily_kwargs": _holiday_daily_kwargs},
     "stock_list": {"add_args": _stock_list_add_args, "daily_kwargs": _stock_list_daily_kwargs},
+    "industry_board_cons": {"add_args": _industry_board_cons_add_args, "daily_kwargs": _industry_board_cons_daily_kwargs},
     "tv_macro": {"add_args": _tv_macro_add_args, "daily_kwargs": _tv_macro_daily_kwargs},
 }
 DAILY_ORDER = ["holiday", "akshare", "baidu", "rzrq", "guzhi", "tv_macro"]  # holiday 先行串行（交易日历供其他源判断已齐全交易日），其余源并行抓取、按此顺序串行合并；nbjb 季频不进 DAILY_ORDER，仅手动 --sources nbjb 触发

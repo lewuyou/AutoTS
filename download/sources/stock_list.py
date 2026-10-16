@@ -26,6 +26,8 @@
     total_share     A股总股本（单位：股，整数，SZ 来自接口，SH 由市值/最新价推算）
     float_share     A股流通股本（单位：股，整数，SZ 来自接口，SH 由市值/最新价推算）
     industry        所属行业（仅 SZ）
+    industry_l2     所属二级行业（东财行业二级分类板块名称，如 "银行"；由 industry_board_cons 源整列刷新，
+                    本表每次整表重建时按 symbol 从旧表保留，避免刷新列表时丢失）
     total_mv        总市值（单位：元，整数，来自 stock_zh_a_spot_tx，亿元换算后四舍五入取整）
     float_mv        流通市值（单位：元，整数，来自 stock_zh_a_spot_tx，亿元换算后四舍五入取整）
     last_price      最新价（单位：元，来自 stock_zh_a_spot_tx）
@@ -35,6 +37,7 @@
 """
 
 from collections import Counter
+import os
 
 from download.common import cli
 from download.common import logging as common_logging
@@ -61,6 +64,7 @@ TABLE_SCHEMA = """(
     total_share BIGINT,
     float_share BIGINT,
     industry TEXT,
+    industry_l2 TEXT,
     total_mv BIGINT,
     float_mv BIGINT,
     last_price DOUBLE,
@@ -68,7 +72,7 @@ TABLE_SCHEMA = """(
 )"""
 COLUMNS = [
     "symbol", "name", "exchange", "full_name", "company_short", "company_full",
-    "list_date", "board", "total_share", "float_share", "industry",
+    "list_date", "board", "total_share", "float_share", "industry", "industry_l2",
     "total_mv", "float_mv", "last_price",
 ]
 
@@ -248,6 +252,26 @@ def stocks_to_rows(stocks):
 merge_stages = storage.make_replace_merge_stages(TABLE_NAME, TABLE_SCHEMA, COLUMNS, DEFAULT_DB_PATH)
 
 
+def load_industry_l2_map(db_path, log):
+    """主库现有 symbol -> industry_l2 映射，用于整表重建时保留二级行业（表/列不存在时返回空）。"""
+    if not os.path.exists(db_path):
+        return {}
+    con = storage.connect(db_path, read_only=True)
+    try:
+        if not storage.table_exists(con, TABLE_NAME):
+            return {}
+        cols = {r[1] for r in con.execute(f"PRAGMA table_info({TABLE_NAME})").fetchall()}
+        if "industry_l2" not in cols:
+            return {}
+        rows = con.execute(
+            f"SELECT symbol, industry_l2 FROM {TABLE_NAME} WHERE industry_l2 IS NOT NULL"
+        ).fetchall()
+        log.info("保留旧表二级行业映射 %d 条", len(rows))
+        return dict(rows)
+    finally:
+        con.close()
+
+
 def run(db_path=None, stage_path=None, run_id=""):
     """执行股票列表抓取：直入主库时整表重建，暂存模式写暂存库（事后整表替换合并）。
 
@@ -270,6 +294,12 @@ def run(db_path=None, stage_path=None, run_id=""):
     stocks = fetch_stock_list(log)
     if not stocks:
         raise RuntimeError("无数据")
+
+    # 整表重建会清空 industry_l2（由 industry_board_cons 源维护），按 symbol 从旧表保留
+    industry_l2_map = load_industry_l2_map(db_path, log)
+    for s in stocks:
+        s["industry_l2"] = industry_l2_map.get(s["symbol"])
+
     rows = stocks_to_rows(stocks)
 
     if stage_path:

@@ -2,7 +2,8 @@
 """AKShare 腾讯证券 A 股历史行情抓取（接入模块）。
 
 仅保留数据源特有逻辑：接口请求、复权方式、单位换算（volume 手→股）、
-逐股增量起点（max(list_date, 库内最大日期+1)）。
+逐股增量起点（max(list_date, 库内最大日期+1)）；增量截止日先探测前两只股票
+最新日期，一致则统一截止，否则回退日历推算的已齐全交易日。
 日志/建表/UPSERT/暂存路径/水位/合并/结果统一走 download.common。
 
 用法（独立运行）：
@@ -42,6 +43,19 @@ try:
 except ImportError:
     ak = None
 
+# akshare 的 stock_zh_a_hist_tx 内部调 get_tx_start_year() 查上市首日，其 requests.get 未设
+# timeout，网络半开连接时会永久 hang。我们的增量起点已由 stock_list 的 list_date 决定，无需该查询，
+# 打桩跳过顺带每股省一次网络往返。
+if ak is not None:
+    try:
+        import akshare.stock_feature.stock_hist_tx as _tx_hist
+        _tx_hist.get_tx_start_year = lambda symbol="": "1990-01-01"
+        # 增量抓取每年只有 1 次迭代，akshare 的 tqdm 会每只股票闪一个 0/1 进度条，
+        # 盖住逐股入库日志；打桩成直通可迭代对象，让日志像其他数据源一样逐条滚动。
+        _tx_hist.get_tqdm = lambda enable=True: (lambda iterable, *a, **k: iterable)
+    except (ImportError, AttributeError):
+        pass
+
 SOURCE_NAME = "akshare"
 TABLE_NAME = "akshare_tx"
 TABLE_SCHEMA = """(
@@ -63,6 +77,7 @@ SHARES_PER_LOT = 100  # 腾讯接口 volume 单位为手，1 手 = 100 股
 DEFAULT_DELAY = 1.0   # 每股抓取间隔（秒），避免触发腾讯限流
 RETRY_TIMES = 2
 RETRY_BACKOFF = 3.0
+PROBE_WINDOW_DAYS = 15  # 探测最新交易日回看天数（覆盖最长假期 + 周末）
 
 
 def _require_akshare():
@@ -115,6 +130,35 @@ def df_to_rows(code, df, adjust=""):
             adjust,
         ))
     return rows
+
+
+def _probe_cutoff_date(entries, end_date, adjust, delay, log):
+    """探测前两只股票在数据源的最新日期，一致则作为统一增量截止日。
+
+    拉取最近 PROBE_WINDOW_DAYS 天的行情取最大日期，不依赖库内水位，直接以数据源
+    真值判断最新交易日；两只股票最新日期一致才返回该日期，否则返回 None（回退日历
+    推算的已齐全交易日）。任一只探测失败或空数据同样返回 None。
+    """
+    if len(entries) < 2:
+        return None
+    start = (end_date - datetime.timedelta(days=PROBE_WINDOW_DAYS)).strftime("%Y%m%d")
+    end = end_date.strftime("%Y%m%d")
+    latest = []
+    for code, _ in entries[:2]:
+        symbol = shared.code_to_symbol(code)
+        try:
+            df = fetch_hist(symbol, start, end, adjust=adjust)
+            last = max(str(d) for d in df["date"])
+            latest.append(datetime.date.fromisoformat(last[:10]))
+        except Exception as e:
+            log.info("探测 %s 最新日期失败（%s），回退日历推算截止日", code, e)
+            return None
+        time.sleep(delay)
+    if latest[0] == latest[1]:
+        return latest[0]
+    log.info("探测两只股票最新日期不一致（%s vs %s），回退日历推算截止日",
+             latest[0].isoformat(), latest[1].isoformat())
+    return None
 
 
 def load_stock_list(db_path=DEFAULT_DB_PATH, exclude_st=True):
@@ -190,7 +234,13 @@ def run(codes=None, start=None, end=None, adjust="hfq", db_path=None,
             log=log, unit="只股票",
         )  # 增量起点读主库+暂存库水位，并打印最后日期分布
         last_completed = shared.last_completed_trading_day(db_path, end_date)
-        if last_completed is not None:
+        probed_cutoff = _probe_cutoff_date(entries, end_date, adjust, delay, log)
+        if probed_cutoff is not None:
+            last_completed = probed_cutoff
+            end = probed_cutoff.strftime("%Y%m%d")
+            end_date = probed_cutoff
+            log.info("探测两只股票最新日期一致，增量统一截止 %s", probed_cutoff.isoformat())
+        elif last_completed is not None:
             log.info("最近已齐全交易日 %s，已覆盖该日的股票直接跳过（不发请求）",
                      last_completed.strftime("%Y-%m-%d"))
         lower = start.replace("-", "") if start else None
