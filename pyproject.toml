@@ -23,6 +23,8 @@ dependencies = [
     "pandas>=1.1.0",
     "statsmodels>=0.13.0",
     "scikit-learn>=1.0.0",
+    "matplotlib>=3.10.9",
+    "scikit-learn-intelex>=2026.2.0",
 ]
 [project.optional-dependencies]
 additional = [

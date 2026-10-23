@@ -32,7 +32,7 @@
 处理规则：
     * 交易日历 = 行业内全部股票 akshare_tx 日期并集（≈A 股交易日历，天然剔除
       周末/节假日，避免 AutoTS 的 df_cleanup 按日历日 resample 插出大量 NaN 行）
-    * 默认起始 2013-01-01：沪深300ETF 成交量始于 2012-05-28，保证三个回归器
+    * 默认起始 2016-01-01：沪深300ETF 成交量始于 2012-05-28，保证三个回归器
       从窗口首日起完整（fit 端 AutoTS 会把回归器 NaN 补 0，0 是假成交量，故
       必须预先保证完整）
     * 覆盖率过滤：窗口内非缺失占比 < min-coverage（默认 0.98）的股票剔除
@@ -94,8 +94,8 @@ import duckdb
 import pandas as pd
 
 DEFAULT_DB_PATH = "download/autots.duckdb"
-DEFAULT_INDUSTRY = "白酒Ⅱ"
-DEFAULT_START = "2013-01-01"
+DEFAULT_INDUSTRY = "电力"
+DEFAULT_START = "2016-01-01"
 DEFAULT_MIN_COVERAGE = 0.98
 DEFAULT_OUT_DIR = "data"
 
@@ -186,7 +186,7 @@ def main():
     parser = argparse.ArgumentParser(description="行业收盘价宽表 + 宏观成交量回归器")
     parser.add_argument("--db", default=DEFAULT_DB_PATH, help="duckdb 路径")
     parser.add_argument("--industry", default=DEFAULT_INDUSTRY, help="industry_l2 行业名")
-    parser.add_argument("--start", default=DEFAULT_START, help="窗口起始日（默认 2013-01-01）")
+    parser.add_argument("--start", default=DEFAULT_START, help="窗口起始日（默认 2016-01-01）")
     parser.add_argument("--min-coverage", type=float, default=DEFAULT_MIN_COVERAGE,
                         help="股票保留阈值：窗口内非缺失占比（默认 0.98）")
     parser.add_argument("--tail", type=int, default=None,
