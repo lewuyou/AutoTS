@@ -18,17 +18,13 @@ from download.common import results
 from download.common.paths import TEMP_DIR
 
 
-def resolve_sources(spec, include_baidu=False):
+def resolve_sources(spec):
     """把 --sources 参数解析成数据源名列表。
 
-    spec 为 daily（默认）时按 DAILY_ORDER 展开，但 baidu 需 include_baidu=True 才包含
-    （百度指数限速严格、耗时最长，默认不每日跑）；显式列出的源（含 baidu）不受此限制。
+    spec 为 daily（默认）时按 DAILY_ORDER 展开（含 baidu）；显式列出的源不受此限制。
     """
     if spec in (None, "", "daily"):
-        names = list(registry.DAILY_ORDER)
-        if not include_baidu:
-            names = [n for n in names if n != "baidu"]
-        return names
+        return list(registry.DAILY_ORDER)
     if spec == "all":
         return list(registry.SOURCES.keys())
     names = [n.strip() for n in spec.split(",") if n.strip()]
@@ -112,7 +108,7 @@ def run(args):
     流程：遗留暂存合并（串行）→ holiday 抓取+合并（串行先行）
     → 其余源并行抓取 → 全部源按序串行合并主库。
     """
-    names = resolve_sources(args.sources, include_baidu=getattr(args, "with_baidu", False))
+    names = resolve_sources(args.sources)
     run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs(TEMP_DIR, exist_ok=True)
     log_path = os.path.join(TEMP_DIR, f"daily_{run_id}.log")
