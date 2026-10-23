@@ -6,8 +6,7 @@
 UPSERT 可重跑、可断点续抓；抓取期间只写暂存库，全部完成后合并入主库。
 
 用法：
-    python daily.py                       # 全部 daily 数据源（holiday 先行串行，akshare/rzrq/guzhi/tv_macro 并行抓取后串行合并；默认不含 baidu；合并后最后一步增量计算衍生特征 stock_features）
-    python daily.py --with-baidu          # daily 数据源 + baidu（百度指数限速严格，耗时长）
+    python daily.py                       # 全部 daily 数据源（holiday 先行串行，akshare/baidu/rzrq/guzhi/tv_macro 并行抓取后串行合并；合并后最后一步增量计算衍生特征 stock_features）
     python daily.py --sources akshare     # 只跑 akshare
     python daily.py --sources akshare,baidu
     python daily.py --sources stock_list  # 手动定期刷新股票所属二级板块，前提需要https://quote.eastmoney.com/center/gridlist.html#industry_board_2，抓取eastmoney_cookie.txt
@@ -136,12 +135,9 @@ from download import registry, runner
 def main():
     parser = argparse.ArgumentParser(description="每日数据增量更新统一入口")
     parser.add_argument("--sources", default="daily",
-                        help="数据源：daily（默认，=holiday,akshare,rzrq,guzhi,tv_macro）、all，或逗号分隔如 akshare,baidu；"
-                             "baidu 限速严格耗时长，默认 daily 不含，需 --with-baidu 或显式 --sources baidu；"
+                        help="数据源：daily（默认，=holiday,akshare,baidu,rzrq,guzhi,tv_macro）、all，或逗号分隔如 akshare；"
                              "stock_list 快照表、industry_board_cons 二级行业与 nbjb 季报不在默认任务中，"
                              "需手动 --sources stock_list / industry_board_cons / nbjb 触发")
-    parser.add_argument("--with-baidu", action="store_true",
-                        help="daily 默认任务带上 baidu（百度指数，5词/批+秒级间隔，耗时长）")
     parser.add_argument("--db", default=None, help="主库 DuckDB 路径（默认 download/autots.duckdb）")
     parser.add_argument("--stage-only", action="store_true", help="只抓取到暂存库，不合并入主库")
     parser.add_argument("--end", default=None,

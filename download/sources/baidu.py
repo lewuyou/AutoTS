@@ -96,7 +96,7 @@ USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 TOKEN_TTL_S = 4 * 3600         # token 缓存时长：实测约 5.5 小时有效（起止时间戳不表有效期），留余量
 BLOCK_COOLDOWN_S = 3600        # 触发风控(10001)后首次冷却 1 小时，之后逐次翻倍（2h、4h）
 NIGHT_END_HOUR = 8             # 凌晨 00:00~08:00 暂停抓取
-WORK_PERIOD_S = 3300           # 每连续抓取 55 分钟即切换下一个 Cookie（多账号轮换，摊薄单账号请求密度）
+WORK_PERIOD_S = 1500           # 每连续抓取 55 分钟即切换下一个 Cookie（多账号轮换，摊薄单账号请求密度）
 UNINDEXED_STATUS = 10002       # 百度指数「未收录」关键词的明确返回码（实测：未收录返回 10002 bad request，已收录返回 0）
 
 log = logging.getLogger(SOURCE_NAME)
