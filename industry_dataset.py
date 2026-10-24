@@ -39,6 +39,9 @@
       （晚上市/长期停牌会产生行首大片 NaN，AutoTS 的 na_tolerance 也会静默
       丢弃，这里显式剔除并在终端列出）
     * 回归器在 A 股交易日缺失（美股节假日、时差日）时 ffill→bfill 补齐
+    * --log-returns：收盘价表换成对数收益率 ln(P_t/P_{t-1})，首行（无前收盘）
+      剔除，回归器同步剔除首行保持行对齐；停牌日及复牌首日无有效前收盘，
+      该日为 NaN（与停牌 NaN 一致交给 AutoTS 模型层 fillna），回归器保持原值
     * 数据量控制：AutoTS 训练前不会自动缩减数据（drop_data_older_than_periods
       默认关闭、na_tolerance 默认 1 不丢列，喂多少训多少），--tail N 只保留
       最近 N 个交易日；或在 AutoTS(drop_data_older_than_periods=N) 端截尾，
@@ -85,12 +88,14 @@ fit 时的预期行为（不是错误）：
     python industry_dataset.py --start 2015-01-01       # 换窗口起点
     python industry_dataset.py --tail 1250              # 只保留最近 1250 个交易日（约 5 年）
     python industry_dataset.py --min-coverage 0.95      # 放宽停牌容忍度
+    python industry_dataset.py --log-returns            # 收盘价表换成对数收益率表
 """
 
 import argparse
 import os
 
 import duckdb
+import numpy as np
 import pandas as pd
 
 DEFAULT_DB_PATH = "download/autots.duckdb"
@@ -98,6 +103,7 @@ DEFAULT_INDUSTRY = "电力"
 DEFAULT_START = "2016-01-01"
 DEFAULT_MIN_COVERAGE = 0.98
 DEFAULT_OUT_DIR = "data"
+DEFAULT_LOG_RETURNS = True
 
 # symbol -> 品种中文名（close 与 volume 都作为回归器）
 MACRO_SYMBOLS = {
@@ -109,13 +115,17 @@ MACRO_SYMBOLS = {
 
 def load_industry_dataset(industry=DEFAULT_INDUSTRY, start=DEFAULT_START,
                           min_coverage=DEFAULT_MIN_COVERAGE,
-                          db_path=DEFAULT_DB_PATH, tail=None):
+                          db_path=DEFAULT_DB_PATH, tail=None,
+                          log_returns=DEFAULT_LOG_RETURNS):
     """返回 (df_close, df_regressor, dropped_coverage)。
 
-    df_close           DatetimeIndex 宽表，每列一只行业内股票的后复权收盘价（元），停牌日 NaN
+    df_close           DatetimeIndex 宽表，每列一只行业内股票的后复权收盘价（元），停牌日 NaN；
+                       log_returns=True 时为对数收益率 ln(P_t/P_{t-1})，首行剔除，
+                       停牌日及其复牌首日为 NaN（无有效前收盘）
     df_regressor       同 index 宽表，六列宏观回归器（各品种 close_/vol_ 各一列），无 NaN
     dropped_coverage   pd.Series，因覆盖率不足被剔除的股票列名 -> 覆盖率
-    tail               只保留最近 N 个交易日（None = 全部窗口）
+    tail               只保留最近 N 个交易日（None = 全部窗口；转收益率后为 N-1 行）
+    log_returns        True 时 df_close 由收盘价转为对数收益率，回归器保持原值仅同步剔除首行
     """
     con = duckdb.connect(db_path, read_only=True)
     try:
@@ -161,6 +171,9 @@ def load_industry_dataset(industry=DEFAULT_INDUSTRY, start=DEFAULT_START,
             f"可用 --start 后移或 --min-coverage 放宽"
         )
 
+    if log_returns:
+        close_wide = np.log(close_wide / close_wide.shift(1)).iloc[1:]
+
     macro["date"] = pd.to_datetime(macro["date"])
     macro_close = macro.pivot(index="date", columns="symbol", values="close")
     macro_vol = macro.pivot(index="date", columns="symbol", values="volume")
@@ -191,12 +204,16 @@ def main():
                         help="股票保留阈值：窗口内非缺失占比（默认 0.98）")
     parser.add_argument("--tail", type=int, default=None,
                         help="只保留最近 N 个交易日（默认全部；控制训练数据量）")
+    parser.add_argument("--log-returns", action=argparse.BooleanOptionalAction,
+                        default=DEFAULT_LOG_RETURNS,
+                        help="收盘价表换成对数收益率 ln(P_t/P_{t-1})（首行剔除，回归器同步对齐）")
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR, help="CSV 输出目录")
     args = parser.parse_args()
 
     df, regressor, dropped = load_industry_dataset(
         industry=args.industry, start=args.start,
         min_coverage=args.min_coverage, db_path=args.db, tail=args.tail,
+        log_returns=args.log_returns,
     )
 
     print(f"行业 {args.industry!r}  窗口 {df.index[0].date()} ~ {df.index[-1].date()}"
@@ -215,7 +232,8 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
     tag = args.industry.replace("/", "_")
-    close_path = os.path.join(args.out_dir, f"industry_{tag}_close.csv")
+    kind = "logret" if args.log_returns else "close"
+    close_path = os.path.join(args.out_dir, f"industry_{tag}_{kind}.csv")
     reg_path = os.path.join(args.out_dir, f"industry_{tag}_regressor.csv")
     df.to_csv(close_path, encoding="utf-8-sig")
     regressor.to_csv(reg_path, encoding="utf-8-sig")
