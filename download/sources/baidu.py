@@ -394,7 +394,7 @@ def load_last_dates(db_path, stage_path=None, log=None):
 def plan_batches(keywords, search_end_d, feed_end_d, last_dates, batch_size=BATCH_SIZE, sort_by_lag=True):
     """每股起点 = max(收录起始日, 库内最大日期+1)，按相同起点分组后按 batch_size 切批。
 
-    search/feed 各用独立的结束日（百度指数 search 数据滞后 1 天、feed 滞后 2 天），
+    search/feed 各用独立的结束日（当前两者相同，截至昨日；保留独立参数便于日后单独调整），
     增量时不查尚未发布的日期，避免每次空查不存在的新一天。
     sort_by_lag=True 时按与主库数据差距时间排序：差距越大（起点越早）越靠前，
     优先补抓滞后最久的关键词；False 则保持传入 keywords 的原始顺序。
@@ -470,7 +470,7 @@ def run(keywords=None, start=None, end=None, cookie_file=None, db_path=None,
     参数：
         keywords: 关键词列表，默认 ["金龙鱼"]
         start: 起始日期 YYYY-MM-DD；不传则按库内最大日期增量（无记录即 2011 起全量）
-        end: 结束日期 YYYY-MM-DD；不传则按数据滞后规则（search 截至昨日、feed 截至前日）
+        end: 结束日期 YYYY-MM-DD；不传则按数据滞后规则（search/feed 均截至昨日）
         cookie_file: Cookie 文件路径（str 单文件、逗号分隔多文件、或路径列表）；
             None 则自动使用存在的 baidu_cookie1~5.txt（多账号轮换），全部缺失则交互式输入
         db_path: 主库路径，默认 download/autots.duckdb
@@ -523,9 +523,9 @@ def run(keywords=None, start=None, end=None, cookie_file=None, db_path=None,
     if end:
         search_end_d = feed_end_d = datetime.date.fromisoformat(end)
     else:
-        # 百度指数数据滞后：search 截至昨日、feed 截至前日，增量时不空查尚未发布的新一天
+        # 百度指数数据滞后 1 天：当天只能取到昨日，增量时不空查尚未发布的新一天
         search_end_d = today - datetime.timedelta(days=1)
-        feed_end_d = today - datetime.timedelta(days=2)
+        feed_end_d = search_end_d
 
     if start:
         start_d = datetime.date.fromisoformat(start)
